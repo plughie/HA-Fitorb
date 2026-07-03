@@ -161,10 +161,11 @@ class FitorbHistoryStore:
     ) -> RelayAckResult:
         """Record unique relay samples and persist relay metadata."""
         relay = self._relay_data()
-        samples: dict[str, dict[str, Any]] = relay["samples"]
+        samples: dict[str, object] = relay["samples"]
         accepted: list[str] = []
         duplicates: list[str] = []
         rejected: list[RelayRejectedSample] = []
+        received_at_utc = received_at.astimezone(UTC)
 
         for sample in batch.samples:
             if sample.ring_id != batch.ring_id:
@@ -178,7 +179,7 @@ class FitorbHistoryStore:
             samples[sample.sample_id] = _relay_sample_to_json(sample)
             accepted.append(sample.sample_id)
 
-        relay["last_upload"] = received_at.astimezone(UTC).isoformat()
+        relay["last_upload"] = received_at_utc.isoformat()
         relay["last_rejected_count"] = len(rejected)
         relay["app_version"] = batch.app_version
         relay["last_sample"] = _latest_relay_timestamp(samples)
@@ -188,7 +189,7 @@ class FitorbHistoryStore:
             accepted=tuple(accepted),
             duplicates=tuple(duplicates),
             rejected=tuple(rejected),
-            server_time=received_at,
+            server_time=received_at_utc,
         )
 
     def _relay_data(self) -> dict[str, Any]:
@@ -205,7 +206,7 @@ class FitorbHistoryStore:
             samples = {
                 key: item
                 for key, item in samples.items()
-                if isinstance(key, str) and isinstance(item, dict)
+                if isinstance(key, str)
             }
         relay["samples"] = samples
 
@@ -271,7 +272,7 @@ def _relay_sample_to_json(sample: RelaySample) -> dict[str, Any]:
     }
 
 
-def _latest_relay_timestamp(samples: dict[str, dict[str, Any]]) -> str | None:
+def _latest_relay_timestamp(samples: dict[str, object]) -> str | None:
     timestamps = [
         _parse_datetime(item.get("timestamp"))
         for item in samples.values()

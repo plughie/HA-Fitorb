@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import copy
 import json
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta, timezone
 from unittest import IsolatedAsyncioTestCase
 from unittest.mock import patch
 
@@ -84,6 +84,70 @@ class TestRelayHistoryStore(IsolatedAsyncioTestCase):
         assert store.relay_last_upload == datetime(2026, 7, 3, 10, 2, tzinfo=UTC)
         assert store.relay_last_sample == datetime(2026, 7, 3, 9, 55, tzinfo=UTC)
         assert store.relay_app_version == "0.1.0"
+
+    async def test_record_relay_batch_deduplicates_across_reload(self) -> None:
+        from custom_components.fitorb.history_store import FitorbHistoryStore
+
+        store = FitorbHistoryStore(object(), "entry-id")
+        await store.async_load()
+        first = await store.async_record_relay_batch(
+            _batch(_sample("sample-heart-1")),
+            datetime(2026, 7, 3, 10, 1, tzinfo=UTC),
+        )
+        reloaded_store = FitorbHistoryStore(object(), "entry-id")
+        await reloaded_store.async_load()
+        second = await reloaded_store.async_record_relay_batch(
+            _batch(_sample("sample-heart-1")),
+            datetime(2026, 7, 3, 10, 2, tzinfo=UTC),
+        )
+
+        assert first.accepted == ("sample-heart-1",)
+        assert second.accepted == ()
+        assert second.duplicates == ("sample-heart-1",)
+        assert reloaded_store.relay_last_upload == datetime(
+            2026, 7, 3, 10, 2, tzinfo=UTC
+        )
+        assert reloaded_store.relay_last_sample == datetime(
+            2026, 7, 3, 9, 55, tzinfo=UTC
+        )
+        assert reloaded_store.relay_app_version == "0.1.0"
+
+    async def test_record_relay_batch_preserves_malformed_sample_keys(self) -> None:
+        from custom_components.fitorb.history_store import FitorbHistoryStore
+
+        _FakeStore._saved["fitorb_history_entry-id"] = {
+            "relay": {
+                "last_upload": "2026-07-03T10:00:00+00:00",
+                "last_sample": None,
+                "last_rejected_count": 0,
+                "app_version": "0.1.0",
+                "samples": {"sample-heart-1": "bad-shape"},
+            }
+        }
+
+        store = FitorbHistoryStore(object(), "entry-id")
+        await store.async_load()
+        result = await store.async_record_relay_batch(
+            _batch(_sample("sample-heart-1")),
+            datetime(2026, 7, 3, 10, 1, tzinfo=UTC),
+        )
+
+        assert result.accepted == ()
+        assert result.duplicates == ("sample-heart-1",)
+        persisted = _FakeStore._saved["fitorb_history_entry-id"]
+        assert persisted["relay"]["samples"]["sample-heart-1"] == "bad-shape"
+
+    async def test_record_relay_batch_returns_utc_server_time(self) -> None:
+        from custom_components.fitorb.history_store import FitorbHistoryStore
+
+        store = FitorbHistoryStore(object(), "entry-id")
+        await store.async_load()
+        result = await store.async_record_relay_batch(
+            _batch(_sample("sample-heart-1")),
+            datetime(2026, 7, 3, 12, 1, tzinfo=timezone(timedelta(hours=2))),
+        )
+
+        assert result.server_time.isoformat() == "2026-07-03T10:01:00+00:00"
 
     async def test_record_relay_batch_rejects_wrong_ring_sample(self) -> None:
         from custom_components.fitorb.history_store import FitorbHistoryStore
