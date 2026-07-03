@@ -168,6 +168,25 @@ class TestRelayHistoryStore(IsolatedAsyncioTestCase):
                         "captured_at": "2026-07-04T09:55:05+00:00",
                         "protocol_version": False,
                     },
+                    "missing-value-future": {
+                        "sample_id": "missing-value-future",
+                        "ring_id": "AA:BB:CC:DD:EE:FF",
+                        "metric": "heart_rate",
+                        "timestamp": "2026-07-05T09:55:00+00:00",
+                        "source": "android_relay",
+                        "captured_at": "2026-07-05T09:55:05+00:00",
+                        "protocol_version": 1,
+                    },
+                    "list-value-future": {
+                        "sample_id": "list-value-future",
+                        "ring_id": "AA:BB:CC:DD:EE:FF",
+                        "metric": "heart_rate",
+                        "timestamp": "2026-07-06T09:55:00+00:00",
+                        "value": [72],
+                        "source": "android_relay",
+                        "captured_at": "2026-07-06T09:55:05+00:00",
+                        "protocol_version": 1,
+                    },
                 },
             }
         }
@@ -183,6 +202,8 @@ class TestRelayHistoryStore(IsolatedAsyncioTestCase):
         assert store.relay_last_sample == datetime(2026, 7, 3, 9, 55, tzinfo=UTC)
         persisted = _FakeStore._saved["fitorb_history_entry-id"]
         assert "bad-future" in persisted["relay"]["samples"]
+        assert "missing-value-future" in persisted["relay"]["samples"]
+        assert "list-value-future" in persisted["relay"]["samples"]
         assert persisted["relay"]["last_sample"] == "2026-07-03T09:55:00+00:00"
 
     async def test_record_relay_batch_returns_utc_server_time(self) -> None:

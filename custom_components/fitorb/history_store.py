@@ -298,6 +298,7 @@ def _is_valid_relay_sample_json(value: object) -> bool:
     sample_id = value.get("sample_id")
     ring_id = value.get("ring_id")
     metric = value.get("metric")
+    sample_value = value.get("value")
     source = value.get("source")
     protocol_version = value.get("protocol_version")
 
@@ -312,6 +313,8 @@ def _is_valid_relay_sample_json(value: object) -> bool:
     except ValueError:
         return False
     if _parse_datetime(value.get("timestamp")) is None:
+        return False
+    if not isinstance(sample_value, int | float | str | bool):
         return False
     if not isinstance(source, str) or not source:
         return False
