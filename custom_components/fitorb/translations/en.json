@@ -60,5 +60,31 @@
         }
       }
     }
+  },
+  "services": {
+    "create_relay_token": {
+      "name": "Create Fitorb Relay Token",
+      "description": "Create a token for an Android relay device.",
+      "fields": {
+        "entry_id": {
+          "name": "Config entry ID",
+          "description": "The Fitorb config entry the relay token can upload for."
+        },
+        "label": {
+          "name": "Label",
+          "description": "A label for the relay device, such as the phone name."
+        }
+      }
+    },
+    "revoke_relay_token": {
+      "name": "Revoke Fitorb Relay Token",
+      "description": "Revoke an Android relay token.",
+      "fields": {
+        "token_id": {
+          "name": "Token ID",
+          "description": "The relay token ID returned when the token was created."
+        }
+      }
+    }
   }
 }
