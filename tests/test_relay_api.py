@@ -158,6 +158,37 @@ def _response_json(response: web.Response) -> dict[str, object]:
     return json.loads(body.decode())
 
 
+def _relay_sample(
+    sample_id: str = "sample-heart-1",
+    *,
+    ring_id: str = "AA:BB:CC:DD:EE:FF",
+) -> RelaySample:
+    return RelaySample(
+        sample_id=sample_id,
+        ring_id=ring_id,
+        metric=RelayMetric.HEART_RATE,
+        timestamp=datetime(2026, 7, 3, 9, 55, tzinfo=UTC),
+        value=72,
+        unit="bpm",
+        source="android_relay",
+        captured_at=datetime(2026, 7, 3, 9, 55, 5, tzinfo=UTC),
+    )
+
+
+def _relay_batch(
+    *samples: RelaySample,
+    ring_id: str = "AA:BB:CC:DD:EE:FF",
+) -> RelayBatch:
+    return RelayBatch(
+        relay_id="pixel-8",
+        ring_id=ring_id,
+        app_version="0.1.0",
+        protocol_version=1,
+        sent_at=datetime(2026, 7, 3, 10, 0, tzinfo=UTC),
+        samples=samples,
+    )
+
+
 class TestFitorbRelaySamplesView(IsolatedAsyncioTestCase):
     async def test_missing_bearer_token_returns_401(self) -> None:
         from custom_components.fitorb.relay_api import FitorbRelaySamplesView
@@ -343,3 +374,80 @@ class TestFitorbRelaySamplesView(IsolatedAsyncioTestCase):
         assert coordinator.data.relay_rejected_samples == 1
         assert coordinator.data.relay_app_version == "0.1.0"
         assert coordinator.data.relay_recently_active is True
+
+    async def test_coordinator_rejects_relay_batch_for_different_ring(self) -> None:
+        entry = SimpleNamespace(
+            data={CONF_ADDRESS: "AA:BB:CC:DD:EE:FF", CONF_NAME: "Ring"},
+            entry_id="entry-id",
+            options={},
+            title="Ring",
+        )
+        store = _FakeHistoryStore()
+        coordinator = FitorbDataUpdateCoordinator(
+            SimpleNamespace(),
+            entry,
+            object(),
+            history_store=store,
+        )
+        coordinator.async_set_updated_data(
+            FitorbData(address="AA:BB:CC:DD:EE:FF", name="Ring", available=True)
+        )
+        received_at = datetime(2026, 7, 3, 10, 2, tzinfo=UTC)
+
+        result = await coordinator.async_record_relay_batch(
+            _relay_batch(
+                _relay_sample("foreign-sample", ring_id="11:22:33:44:55:66"),
+                ring_id="11:22:33:44:55:66",
+            ),
+            received_at,
+        )
+
+        assert result.accepted == ()
+        assert result.duplicates == ()
+        assert [(item.sample_id, item.reason) for item in result.rejected] == [
+            ("foreign-sample", "ring_id_mismatch")
+        ]
+        assert result.server_time == received_at
+        assert store.recorded_relay_batches == []
+        assert coordinator.data is not None
+        assert coordinator.data.last_relay_upload is None
+
+    async def test_history_summary_applies_relay_diagnostics_after_reload(
+        self,
+    ) -> None:
+        entry = SimpleNamespace(
+            data={CONF_ADDRESS: "AA:BB:CC:DD:EE:FF", CONF_NAME: "Ring"},
+            entry_id="entry-id",
+            options={},
+            title="Ring",
+        )
+        store = _FakeHistoryStore()
+        store.last_sync = None
+        store.last_sample_count = 0
+        store.last_status = None
+        store.relay_last_upload = datetime(2026, 7, 3, 10, 0, tzinfo=UTC)
+        store.relay_last_sample = datetime(2026, 7, 3, 9, 55, tzinfo=UTC)
+        store.relay_last_rejected_count = 2
+        store.relay_app_version = "0.1.0"
+        coordinator = FitorbDataUpdateCoordinator(
+            SimpleNamespace(),
+            entry,
+            object(),
+            history_store=store,
+        )
+
+        recent = coordinator._apply_history_store_summary(
+            FitorbData(address="AA:BB:CC:DD:EE:FF", name="Ring"),
+            now=datetime(2026, 7, 3, 10, 20, tzinfo=UTC),
+        )
+        stale = coordinator._apply_history_store_summary(
+            recent,
+            now=datetime(2026, 7, 3, 10, 31, tzinfo=UTC),
+        )
+
+        assert recent.last_relay_upload == store.relay_last_upload
+        assert recent.last_relay_sample_time == store.relay_last_sample
+        assert recent.relay_rejected_samples == 2
+        assert recent.relay_app_version == "0.1.0"
+        assert recent.relay_recently_active is True
+        assert stale.relay_recently_active is False
