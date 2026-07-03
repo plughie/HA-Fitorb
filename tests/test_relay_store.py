@@ -118,7 +118,7 @@ class TestRelayHistoryStore(IsolatedAsyncioTestCase):
         _FakeStore._saved["fitorb_history_entry-id"] = {
             "relay": {
                 "last_upload": "2026-07-03T10:00:00+00:00",
-                "last_sample": None,
+                "last_sample": "2026-07-03T09:55:00+00:00",
                 "last_rejected_count": 0,
                 "app_version": "0.1.0",
                 "samples": {"sample-heart-1": "bad-shape"},
@@ -134,8 +134,10 @@ class TestRelayHistoryStore(IsolatedAsyncioTestCase):
 
         assert result.accepted == ()
         assert result.duplicates == ("sample-heart-1",)
+        assert store.relay_last_sample == datetime(2026, 7, 3, 9, 55, tzinfo=UTC)
         persisted = _FakeStore._saved["fitorb_history_entry-id"]
         assert persisted["relay"]["samples"]["sample-heart-1"] == "bad-shape"
+        assert persisted["relay"]["last_sample"] == "2026-07-03T09:55:00+00:00"
 
     async def test_record_relay_batch_returns_utc_server_time(self) -> None:
         from custom_components.fitorb.history_store import FitorbHistoryStore

@@ -182,7 +182,9 @@ class FitorbHistoryStore:
         relay["last_upload"] = received_at_utc.isoformat()
         relay["last_rejected_count"] = len(rejected)
         relay["app_version"] = batch.app_version
-        relay["last_sample"] = _latest_relay_timestamp(samples)
+        latest_sample = _latest_relay_timestamp(samples)
+        if latest_sample is not None:
+            relay["last_sample"] = latest_sample
 
         await self._store.async_save(self._data)
         return RelayAckResult(
