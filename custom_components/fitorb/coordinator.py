@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
 import logging
+from datetime import UTC, datetime, timedelta
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_ADDRESS, CONF_NAME, CONF_SCAN_INTERVAL
@@ -22,8 +22,10 @@ from .const import (
 )
 from .history_store import FitorbHistoryStore
 from .models import FitorbData, FitorbHistoryRequest
+from .relay import RelayAckResult, RelayBatch
 
 _LOGGER = logging.getLogger(__name__)
+_RELAY_RECENT_ACTIVITY_WINDOW = timedelta(minutes=30)
 
 
 class FitorbDataUpdateCoordinator(DataUpdateCoordinator[FitorbData]):
@@ -143,6 +145,31 @@ class FitorbDataUpdateCoordinator(DataUpdateCoordinator[FitorbData]):
             last_successful_update=updated_at,
         )
 
+    async def async_record_relay_batch(
+        self,
+        batch: RelayBatch,
+        received_at: datetime,
+    ) -> RelayAckResult:
+        """Persist an Android relay batch and refresh relay diagnostics."""
+        result = await self.history_store.async_record_relay_batch(batch, received_at)
+        base = self._apply_history_store_summary(self.data or self.base_data)
+        received_at_utc = received_at.astimezone(UTC)
+        last_upload = self.history_store.relay_last_upload
+        last_sample = self.history_store.relay_last_sample
+        self.async_set_updated_data(
+            base.with_values(
+                last_relay_upload=last_upload,
+                last_relay_sample_time=last_sample,
+                relay_rejected_samples=self.history_store.relay_last_rejected_count,
+                relay_app_version=self.history_store.relay_app_version,
+                relay_recently_active=_relay_upload_is_recent(
+                    last_upload,
+                    received_at_utc,
+                ),
+            )
+        )
+        return result
+
     def _apply_history_store_summary(self, data: FitorbData) -> FitorbData:
         """Return data with persisted history summary metadata applied."""
         last_sync = self.history_store.last_sync
@@ -218,3 +245,15 @@ def _has_health_value(data: FitorbData) -> bool:
         or data.spo2 is not None
         or data.stress is not None
     )
+
+
+def _relay_upload_is_recent(
+    last_upload: datetime | None,
+    received_at: datetime,
+) -> bool:
+    """Return whether the latest relay upload is still considered active."""
+    if last_upload is None:
+        return False
+
+    elapsed = received_at - last_upload.astimezone(UTC)
+    return timedelta(0) <= elapsed <= _RELAY_RECENT_ACTIVITY_WINDOW

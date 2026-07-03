@@ -11,13 +11,18 @@ from homeassistant.exceptions import HomeAssistantError
 from .bluetooth import FitorbBleClient
 from .const import DOMAIN, PLATFORMS
 from .coordinator import FitorbDataUpdateCoordinator
+from .relay_api import (
+    DATA_RELAY_TOKENS,
+    DATA_RELAY_VIEW_REGISTERED,
+    FitorbRelaySamplesView,
+)
 from .relay_auth import FitorbRelayTokenStore
 
 _LOGGER = logging.getLogger(__name__)
 
-DATA_RELAY_TOKENS = "relay_tokens"
 SERVICE_CREATE_RELAY_TOKEN = "create_relay_token"
 SERVICE_REVOKE_RELAY_TOKEN = "revoke_relay_token"
+_RESERVED_DOMAIN_DATA_KEYS = {DATA_RELAY_TOKENS, DATA_RELAY_VIEW_REGISTERED}
 
 _REQUIRED_STRING = vol.All(str, vol.Length(min=1))
 _CREATE_RELAY_TOKEN_SCHEMA = vol.Schema(
@@ -80,6 +85,8 @@ async def _async_setup_relay_services(hass: HomeAssistant) -> None:
         await token_store.async_load()
         domain_data[DATA_RELAY_TOKENS] = token_store
 
+    _register_relay_view_once(hass, domain_data)
+
     if hass.services.has_service(DOMAIN, SERVICE_CREATE_RELAY_TOKEN):
         return
 
@@ -118,7 +125,7 @@ async def _async_create_relay_token_response(
     label: str,
 ) -> dict[str, str]:
     """Create a relay token service response for a loaded config entry."""
-    if entry_id == DATA_RELAY_TOKENS or entry_id not in domain_data:
+    if entry_id in _RESERVED_DOMAIN_DATA_KEYS or entry_id not in domain_data:
         raise HomeAssistantError(f"Unknown Fitorb config entry ID: {entry_id}")
 
     created = await token_store.async_create_token(entry_id, label)
@@ -140,9 +147,25 @@ def _async_remove_relay_services_if_unused(hass: HomeAssistant) -> None:
     hass.services.async_remove(DOMAIN, SERVICE_REVOKE_RELAY_TOKEN)
 
 
+def _register_relay_view_once(
+    hass: HomeAssistant,
+    domain_data: dict[str, object],
+) -> None:
+    """Register the Android relay ingest view once."""
+    if domain_data.get(DATA_RELAY_VIEW_REGISTERED) is True:
+        return
+
+    if hass.http is None:
+        _LOGGER.debug("HTTP server unavailable; relay ingest view not registered")
+        return
+
+    hass.http.register_view(FitorbRelaySamplesView())
+    domain_data[DATA_RELAY_VIEW_REGISTERED] = True
+
+
 def _has_loaded_fitorb_entries(domain_data: dict[str, object]) -> bool:
     """Return whether domain data still contains loaded config entries."""
-    return any(key != DATA_RELAY_TOKENS for key in domain_data)
+    return any(key not in _RESERVED_DOMAIN_DATA_KEYS for key in domain_data)
 
 
 async def _async_refresh_after_setup(
