@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import hmac
 import secrets
@@ -50,6 +51,7 @@ class FitorbRelayTokenStore:
     def __init__(self, hass: HomeAssistant) -> None:
         self._store: Store[dict[str, Any]] = Store(hass, _STORE_VERSION, _STORE_KEY)
         self._tokens: dict[str, _StoredRelayToken] = {}
+        self._lock = asyncio.Lock()
 
     async def async_load(self) -> None:
         """Load relay tokens from storage."""
@@ -62,20 +64,21 @@ class FitorbRelayTokenStore:
         label: str,
     ) -> RelayTokenCreated:
         """Create and persist a relay token for a config entry."""
-        token_id = _generate_token_id(self._tokens)
-        token = f"{_TOKEN_PREFIX}{secrets.token_urlsafe(32)}"
-        record = RelayTokenRecord(
-            token_id=token_id,
-            entry_id=entry_id,
-            label=label,
-            created_at=datetime.now(UTC),
-        )
-        self._tokens[token_id] = _StoredRelayToken(
-            record=record,
-            token_hash=_hash_token(token),
-        )
-        await self._async_save()
-        return RelayTokenCreated(token=token, record=record)
+        async with self._lock:
+            token_id = _generate_token_id(self._tokens)
+            token = f"{_TOKEN_PREFIX}{secrets.token_urlsafe(32)}"
+            record = RelayTokenRecord(
+                token_id=token_id,
+                entry_id=entry_id,
+                label=label,
+                created_at=datetime.now(UTC),
+            )
+            self._tokens[token_id] = _StoredRelayToken(
+                record=record,
+                token_hash=_hash_token(token),
+            )
+            await self._async_save()
+            return RelayTokenCreated(token=token, record=record)
 
     async def async_validate_token(self, token: str) -> RelayTokenRecord | None:
         """Return token metadata when the relay token is valid."""
@@ -83,7 +86,7 @@ class FitorbRelayTokenStore:
             return None
 
         token_hash = _hash_token(token)
-        for stored in self._tokens.values():
+        for stored in tuple(self._tokens.values()):
             if not _is_valid_stored_token(stored):
                 continue
             if hmac.compare_digest(stored.token_hash, token_hash):
@@ -92,11 +95,12 @@ class FitorbRelayTokenStore:
 
     async def async_revoke_token(self, token_id: str) -> bool:
         """Revoke a relay token by token ID."""
-        if token_id not in self._tokens:
-            return False
-        del self._tokens[token_id]
-        await self._async_save()
-        return True
+        async with self._lock:
+            if token_id not in self._tokens:
+                return False
+            del self._tokens[token_id]
+            await self._async_save()
+            return True
 
     async def _async_save(self) -> None:
         """Persist normalized relay token metadata."""

@@ -6,6 +6,7 @@ import voluptuous as vol
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_ADDRESS
 from homeassistant.core import HomeAssistant, ServiceCall, SupportsResponse
+from homeassistant.exceptions import HomeAssistantError
 
 from .bluetooth import FitorbBleClient
 from .const import DOMAIN, PLATFORMS
@@ -82,16 +83,12 @@ async def _async_setup_relay_services(hass: HomeAssistant) -> None:
         return
 
     async def _async_create_relay_token(call: ServiceCall) -> dict[str, str]:
-        created = await token_store.async_create_token(
+        return await _async_create_relay_token_response(
+            token_store,
+            domain_data,
             call.data["entry_id"],
             call.data["label"],
         )
-        return {
-            "token_id": created.record.token_id,
-            "token": created.token,
-            "entry_id": created.record.entry_id,
-            "label": created.record.label,
-        }
 
     async def _async_revoke_relay_token(call: ServiceCall) -> dict[str, bool]:
         revoked = await token_store.async_revoke_token(call.data["token_id"])
@@ -111,6 +108,25 @@ async def _async_setup_relay_services(hass: HomeAssistant) -> None:
         schema=_REVOKE_RELAY_TOKEN_SCHEMA,
         supports_response=SupportsResponse.ONLY,
     )
+
+
+async def _async_create_relay_token_response(
+    token_store: FitorbRelayTokenStore,
+    domain_data: dict[str, object],
+    entry_id: str,
+    label: str,
+) -> dict[str, str]:
+    """Create a relay token service response for a loaded config entry."""
+    if entry_id == DATA_RELAY_TOKENS or entry_id not in domain_data:
+        raise HomeAssistantError(f"Unknown Fitorb config entry ID: {entry_id}")
+
+    created = await token_store.async_create_token(entry_id, label)
+    return {
+        "token_id": created.record.token_id,
+        "token": created.token,
+        "entry_id": created.record.entry_id,
+        "label": created.record.label,
+    }
 
 
 async def _async_refresh_after_setup(
