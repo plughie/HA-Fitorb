@@ -139,6 +139,52 @@ class TestRelayHistoryStore(IsolatedAsyncioTestCase):
         assert persisted["relay"]["samples"]["sample-heart-1"] == "bad-shape"
         assert persisted["relay"]["last_sample"] == "2026-07-03T09:55:00+00:00"
 
+    async def test_relay_last_sample_ignores_malformed_future_timestamp(self) -> None:
+        from custom_components.fitorb.history_store import FitorbHistoryStore
+
+        _FakeStore._saved["fitorb_history_entry-id"] = {
+            "relay": {
+                "last_upload": "2026-07-03T10:00:00+00:00",
+                "last_sample": None,
+                "last_rejected_count": 0,
+                "app_version": "0.1.0",
+                "samples": {
+                    "sample-heart-1": {
+                        "sample_id": "sample-heart-1",
+                        "ring_id": "AA:BB:CC:DD:EE:FF",
+                        "metric": "heart_rate",
+                        "timestamp": "2026-07-03T09:55:00+00:00",
+                        "value": 72,
+                        "unit": "bpm",
+                        "source": "android_relay",
+                        "captured_at": "2026-07-03T09:55:05+00:00",
+                        "protocol_version": 1,
+                    },
+                    "bad-future": {
+                        "sample_id": "bad-future",
+                        "ring_id": "",
+                        "metric": "heart_rate",
+                        "timestamp": "2026-07-04T09:55:00+00:00",
+                        "captured_at": "2026-07-04T09:55:05+00:00",
+                        "protocol_version": False,
+                    },
+                },
+            }
+        }
+
+        store = FitorbHistoryStore(object(), "entry-id")
+        await store.async_load()
+        result = await store.async_record_relay_batch(
+            _batch(_sample("sample-heart-1")),
+            datetime(2026, 7, 3, 10, 1, tzinfo=UTC),
+        )
+
+        assert result.duplicates == ("sample-heart-1",)
+        assert store.relay_last_sample == datetime(2026, 7, 3, 9, 55, tzinfo=UTC)
+        persisted = _FakeStore._saved["fitorb_history_entry-id"]
+        assert "bad-future" in persisted["relay"]["samples"]
+        assert persisted["relay"]["last_sample"] == "2026-07-03T09:55:00+00:00"
+
     async def test_record_relay_batch_returns_utc_server_time(self) -> None:
         from custom_components.fitorb.history_store import FitorbHistoryStore
 

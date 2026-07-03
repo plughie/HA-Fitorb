@@ -8,7 +8,13 @@ from homeassistant.helpers.storage import Store
 
 from .const import DOMAIN
 from .models import FitorbHistoryResult, FitorbHistorySample, FitorbSleepSummary
-from .relay import RelayAckResult, RelayBatch, RelayRejectedSample, RelaySample
+from .relay import (
+    RelayAckResult,
+    RelayBatch,
+    RelayMetric,
+    RelayRejectedSample,
+    RelaySample,
+)
 
 _STORE_VERSION = 1
 
@@ -275,13 +281,47 @@ def _relay_sample_to_json(sample: RelaySample) -> dict[str, Any]:
 
 
 def _latest_relay_timestamp(samples: dict[str, object]) -> str | None:
-    timestamps = [
-        _parse_datetime(item.get("timestamp"))
-        for item in samples.values()
-        if isinstance(item, dict)
-    ]
-    valid_timestamps = [stamp for stamp in timestamps if stamp is not None]
-    return max(valid_timestamps).isoformat() if valid_timestamps else None
+    timestamps: list[datetime] = []
+    for item in samples.values():
+        if not _is_valid_relay_sample_json(item):
+            continue
+        timestamp = _parse_datetime(item.get("timestamp"))
+        if timestamp is not None:
+            timestamps.append(timestamp)
+    return max(timestamps).isoformat() if timestamps else None
+
+
+def _is_valid_relay_sample_json(value: object) -> bool:
+    if not isinstance(value, dict):
+        return False
+
+    sample_id = value.get("sample_id")
+    ring_id = value.get("ring_id")
+    metric = value.get("metric")
+    source = value.get("source")
+    protocol_version = value.get("protocol_version")
+
+    if not isinstance(sample_id, str) or not sample_id:
+        return False
+    if not isinstance(ring_id, str) or not ring_id:
+        return False
+    if not isinstance(metric, str):
+        return False
+    try:
+        RelayMetric(metric)
+    except ValueError:
+        return False
+    if _parse_datetime(value.get("timestamp")) is None:
+        return False
+    if not isinstance(source, str) or not source:
+        return False
+    if _parse_datetime(value.get("captured_at")) is None:
+        return False
+    return (
+        not isinstance(protocol_version, bool)
+        and isinstance(protocol_version, int)
+        and protocol_version > 0
+    )
 
 
 def _sleep_summary_to_json(summary: FitorbSleepSummary) -> dict[str, Any]:
