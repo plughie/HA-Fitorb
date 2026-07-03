@@ -77,6 +77,42 @@ def test_parse_relay_batch_rejects_ring_id_mismatch() -> None:
         parse_relay_batch(payload, max_samples=10)
 
 
+def test_parse_relay_batch_rejects_bool_batch_protocol_version() -> None:
+    payload = _payload()
+    payload["protocol_version"] = True
+
+    with pytest.raises(ValueError, match="protocol_version"):
+        parse_relay_batch(payload, max_samples=10)
+
+
+def test_parse_relay_batch_rejects_zero_batch_protocol_version() -> None:
+    payload = _payload()
+    payload["protocol_version"] = 0
+
+    with pytest.raises(ValueError, match="protocol_version"):
+        parse_relay_batch(payload, max_samples=10)
+
+
+def test_parse_relay_batch_rejects_bool_sample_protocol_version() -> None:
+    payload = _payload()
+    sample = dict(payload["samples"][0])
+    sample["protocol_version"] = False
+    payload["samples"] = [sample]
+
+    with pytest.raises(ValueError, match="protocol_version"):
+        parse_relay_batch(payload, max_samples=10)
+
+
+def test_parse_relay_batch_rejects_zero_sample_protocol_version() -> None:
+    payload = _payload()
+    sample = dict(payload["samples"][0])
+    sample["protocol_version"] = 0
+    payload["samples"] = [sample]
+
+    with pytest.raises(ValueError, match="protocol_version"):
+        parse_relay_batch(payload, max_samples=10)
+
+
 def test_relay_ack_to_json_uses_zulu_server_time() -> None:
     response = relay_ack_to_json(
         RelayAckResult(

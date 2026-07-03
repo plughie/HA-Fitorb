@@ -74,7 +74,7 @@ def parse_relay_batch(payload: dict[str, object], *, max_samples: int) -> RelayB
     relay_id = _required_str(payload, "relay_id")
     ring_id = _required_str(payload, "ring_id")
     app_version = _required_str(payload, "app_version")
-    protocol_version = _required_int(payload, "protocol_version")
+    protocol_version = _required_positive_int(payload, "protocol_version")
     sent_at = _parse_datetime(_required_str(payload, "sent_at"))
     raw_samples = payload.get("samples")
     if not isinstance(raw_samples, list):
@@ -132,6 +132,11 @@ def _parse_sample(
     if not isinstance(sample_value, int | float | str | bool):
         raise ValueError("sample value has invalid type")
 
+    sample_protocol_version = _optional_positive_int(
+        value.get("protocol_version"),
+        "protocol_version",
+    )
+
     return RelaySample(
         sample_id=_required_str(value, "sample_id"),
         ring_id=sample_ring_id,
@@ -144,8 +149,9 @@ def _parse_sample(
         local_date=_optional_date(value.get("local_date")),
         uploaded_at=_optional_datetime(value.get("uploaded_at")),
         raw_hex=_optional_str(value.get("raw_hex")),
-        protocol_version=_optional_int(value.get("protocol_version"))
-        or protocol_version,
+        protocol_version=sample_protocol_version
+        if sample_protocol_version is not None
+        else protocol_version,
     )
 
 
@@ -156,10 +162,10 @@ def _required_str(payload: dict[str, Any], key: str) -> str:
     return value
 
 
-def _required_int(payload: dict[str, Any], key: str) -> int:
+def _required_positive_int(payload: dict[str, Any], key: str) -> int:
     value = payload.get(key)
-    if not isinstance(value, int):
-        raise ValueError(f"{key} must be an integer")
+    if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+        raise ValueError(f"{key} must be a positive integer")
     return value
 
 
@@ -171,11 +177,11 @@ def _optional_str(value: object) -> str | None:
     return value
 
 
-def _optional_int(value: object) -> int | None:
+def _optional_positive_int(value: object, key: str) -> int | None:
     if value is None:
         return None
-    if not isinstance(value, int):
-        raise ValueError("optional integer field has invalid type")
+    if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+        raise ValueError(f"{key} must be a positive integer")
     return value
 
 
