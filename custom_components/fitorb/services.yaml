@@ -1,0 +1,17 @@
+create_relay_token:
+  fields:
+    entry_id:
+      required: true
+      selector:
+        text: {}
+    label:
+      required: true
+      selector:
+        text: {}
+
+revoke_relay_token:
+  fields:
+    token_id:
+      required: true
+      selector:
+        text: {}

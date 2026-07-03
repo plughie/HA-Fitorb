@@ -4,8 +4,11 @@ import asyncio
 import copy
 import json
 from datetime import UTC, datetime
+from pathlib import Path
 from unittest import IsolatedAsyncioTestCase
 from unittest.mock import patch
+
+import yaml
 
 
 class _FakeStore:
@@ -78,6 +81,22 @@ class _FakeRelayTokenStore:
                 created_at=datetime(2026, 7, 3, 10, 0, tzinfo=UTC),
             ),
         )
+
+
+class _FakeServices:
+    def __init__(self) -> None:
+        self.removed: list[tuple[str, str]] = []
+
+    def async_remove(self, domain: str, service: str) -> None:
+        self.removed.append((domain, service))
+
+
+class _FakeHass:
+    def __init__(self, domain_data: dict[str, object]) -> None:
+        from custom_components.fitorb.const import DOMAIN
+
+        self.data = {DOMAIN: domain_data}
+        self.services = _FakeServices()
 
 
 class TestRelayAuth(IsolatedAsyncioTestCase):
@@ -229,3 +248,55 @@ class TestRelayAuth(IsolatedAsyncioTestCase):
             "label": "Pixel 8",
         }
         assert token_store.created == [("entry-id", "Pixel 8")]
+
+    async def test_services_yaml_exposes_relay_service_fields(self) -> None:
+        services_path = (
+            Path(__file__).parents[1]
+            / "custom_components"
+            / "fitorb"
+            / "services.yaml"
+        )
+
+        services = yaml.safe_load(services_path.read_text(encoding="utf-8"))
+
+        create_fields = services["create_relay_token"]["fields"]
+        assert create_fields["entry_id"]["required"] is True
+        assert create_fields["entry_id"]["selector"] == {"text": {}}
+        assert create_fields["label"]["required"] is True
+        assert create_fields["label"]["selector"] == {"text": {}}
+
+        revoke_fields = services["revoke_relay_token"]["fields"]
+        assert revoke_fields["token_id"]["required"] is True
+        assert revoke_fields["token_id"]["selector"] == {"text": {}}
+
+    async def test_remove_relay_services_ignores_token_store_key(self) -> None:
+        from custom_components.fitorb import (
+            DATA_RELAY_TOKENS,
+            SERVICE_CREATE_RELAY_TOKEN,
+            SERVICE_REVOKE_RELAY_TOKEN,
+            _async_remove_relay_services_if_unused,
+        )
+        from custom_components.fitorb.const import DOMAIN
+
+        hass = _FakeHass({DATA_RELAY_TOKENS: object()})
+
+        _async_remove_relay_services_if_unused(hass)
+
+        assert hass.services.removed == [
+            (DOMAIN, SERVICE_CREATE_RELAY_TOKEN),
+            (DOMAIN, SERVICE_REVOKE_RELAY_TOKEN),
+        ]
+
+    async def test_remove_relay_services_keeps_services_when_entry_remains(
+        self,
+    ) -> None:
+        from custom_components.fitorb import (
+            DATA_RELAY_TOKENS,
+            _async_remove_relay_services_if_unused,
+        )
+
+        hass = _FakeHass({DATA_RELAY_TOKENS: object(), "entry-id": object()})
+
+        _async_remove_relay_services_if_unused(hass)
+
+        assert hass.services.removed == []

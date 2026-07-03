@@ -61,7 +61,8 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a Fitorb config entry."""
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unload_ok:
-        hass.data[DOMAIN].pop(entry.entry_id)
+        hass.data[DOMAIN].pop(entry.entry_id, None)
+        _async_remove_relay_services_if_unused(hass)
     return unload_ok
 
 
@@ -127,6 +128,21 @@ async def _async_create_relay_token_response(
         "entry_id": created.record.entry_id,
         "label": created.record.label,
     }
+
+
+def _async_remove_relay_services_if_unused(hass: HomeAssistant) -> None:
+    """Remove relay services when no Fitorb config entries are loaded."""
+    domain_data = hass.data.get(DOMAIN, {})
+    if _has_loaded_fitorb_entries(domain_data):
+        return
+
+    hass.services.async_remove(DOMAIN, SERVICE_CREATE_RELAY_TOKEN)
+    hass.services.async_remove(DOMAIN, SERVICE_REVOKE_RELAY_TOKEN)
+
+
+def _has_loaded_fitorb_entries(domain_data: dict[str, object]) -> bool:
+    """Return whether domain data still contains loaded config entries."""
+    return any(key != DATA_RELAY_TOKENS for key in domain_data)
 
 
 async def _async_refresh_after_setup(
