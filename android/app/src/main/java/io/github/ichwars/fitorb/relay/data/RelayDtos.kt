@@ -1,7 +1,6 @@
 package io.github.ichwars.fitorb.relay.data
 
-import kotlinx.serialization.EncodeDefault
-import kotlinx.serialization.ExperimentalSerializationApi
+import kotlinx.serialization.Required
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
@@ -19,7 +18,6 @@ data class RelayBatchDto(
 )
 
 @Serializable
-@OptIn(ExperimentalSerializationApi::class)
 data class RelaySampleDto(
     @SerialName("sample_id") val sampleId: String,
     @SerialName("ring_id") val ringId: String,
@@ -27,7 +25,7 @@ data class RelaySampleDto(
     val timestamp: String,
     val value: RelaySampleValue,
     val unit: String? = null,
-    @EncodeDefault
+    @Required
     val source: String = "android_relay",
     @SerialName("captured_at") val capturedAt: String,
     @SerialName("local_date") val localDate: String? = null,

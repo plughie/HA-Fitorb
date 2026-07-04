@@ -25,6 +25,9 @@ object RelaySampleValueSerializer : KSerializer<RelaySampleValue> {
     override fun deserialize(decoder: Decoder): RelaySampleValue {
         require(decoder is JsonDecoder)
         val primitive = decoder.decodeJsonElement().jsonPrimitive
+        if (primitive.isString) {
+            return RelaySampleValue.StringValue(primitive.content)
+        }
         primitive.booleanOrNull?.let { return RelaySampleValue.BoolValue(it) }
         primitive.intOrNull?.let { return RelaySampleValue.IntValue(it) }
         primitive.doubleOrNull?.let { return RelaySampleValue.DoubleValue(it) }
