@@ -22,6 +22,12 @@ class FakeCoordinator:
         last_history_status="success",
         last_history_first_sample=datetime(2026, 6, 25, 0, 0, tzinfo=UTC),
         last_history_last_sample=datetime(2026, 6, 26, 0, 0, tzinfo=UTC),
+        last_relay_upload=datetime(2026, 7, 3, 10, 1, tzinfo=UTC),
+        last_relay_sample_time=datetime(2026, 7, 3, 9, 55, tzinfo=UTC),
+        relay_rejected_samples=1,
+        relay_app_version="0.1.0",
+        relay_backlog=0,
+        relay_recently_active=True,
         sleep_start=datetime(2026, 6, 26, 23, 0, tzinfo=UTC),
         sleep_end=datetime(2026, 6, 27, 5, 8, tzinfo=UTC),
         sleep_duration_minutes=368,
@@ -67,6 +73,14 @@ async def test_diagnostics_redacts_address(hass: HomeAssistant) -> None:
         "last_sample": "2026-06-26T00:00:00+00:00",
         "unknown_packets": 2,
         "malformed_packets": 1,
+    }
+    assert diagnostics["relay"] == {
+        "last_upload": "2026-07-03T10:01:00+00:00",
+        "last_sample_time": "2026-07-03T09:55:00+00:00",
+        "rejected_samples": 1,
+        "app_version": "0.1.0",
+        "backlog": 0,
+        "recently_active": True,
     }
     assert diagnostics["sleep"] == {
         "start": "2026-06-26T23:00:00+00:00",

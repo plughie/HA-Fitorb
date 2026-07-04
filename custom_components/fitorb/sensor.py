@@ -10,9 +10,15 @@ from homeassistant.components.sensor import (
     SensorStateClass,
 )
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import EntityCategory, PERCENTAGE, UnitOfLength, UnitOfTime
+from homeassistant.const import PERCENTAGE, EntityCategory, UnitOfLength, UnitOfTime
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
+
+try:
+    from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
+except ImportError:
+    from homeassistant.helpers.entity_platform import (
+        AddEntitiesCallback as AddConfigEntryEntitiesCallback,
+    )
 from homeassistant.helpers.typing import StateType
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
@@ -178,6 +184,38 @@ SENSOR_DESCRIPTIONS: dict[str, FitorbSensorDescription] = {
         device_class=SensorDeviceClass.TIMESTAMP,
         entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=lambda data: data.last_history_last_sample,
+    ),
+    "last_relay_upload": FitorbSensorDescription(
+        key="last_relay_upload",
+        translation_key="last_relay_upload",
+        device_class=SensorDeviceClass.TIMESTAMP,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=lambda data: data.last_relay_upload,
+    ),
+    "last_relay_sample_time": FitorbSensorDescription(
+        key="last_relay_sample_time",
+        translation_key="last_relay_sample_time",
+        device_class=SensorDeviceClass.TIMESTAMP,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=lambda data: data.last_relay_sample_time,
+    ),
+    "relay_rejected_samples": FitorbSensorDescription(
+        key="relay_rejected_samples",
+        translation_key="relay_rejected_samples",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=lambda data: data.relay_rejected_samples,
+    ),
+    "relay_app_version": FitorbSensorDescription(
+        key="relay_app_version",
+        translation_key="relay_app_version",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=lambda data: data.relay_app_version,
+    ),
+    "relay_backlog": FitorbSensorDescription(
+        key="relay_backlog",
+        translation_key="relay_backlog",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=lambda data: data.relay_backlog,
     ),
 }
 

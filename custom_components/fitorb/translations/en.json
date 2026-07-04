@@ -44,11 +44,17 @@
       "last_history_sample_count": { "name": "History sample count" },
       "last_history_status": { "name": "History sync status" },
       "last_history_first_sample": { "name": "First history sample" },
-      "last_history_last_sample": { "name": "Last history sample" }
+      "last_history_last_sample": { "name": "Last history sample" },
+      "last_relay_upload": { "name": "Last mobile relay upload" },
+      "last_relay_sample_time": { "name": "Last mobile relay sample" },
+      "relay_rejected_samples": { "name": "Rejected relay samples" },
+      "relay_app_version": { "name": "Relay app version" },
+      "relay_backlog": { "name": "Relay backlog" }
     },
     "binary_sensor": {
       "is_charging": { "name": "Charging" },
-      "connection_state": { "name": "Connection" }
+      "connection_state": { "name": "Connection" },
+      "relay_recently_active": { "name": "Mobile relay recently active" }
     }
   },
   "options": {
@@ -57,6 +63,32 @@
         "data": {
           "history_lookback_days": "History lookback days",
           "history_sync_interval": "History sync interval"
+        }
+      }
+    }
+  },
+  "services": {
+    "create_relay_token": {
+      "name": "Create Fitorb Relay Token",
+      "description": "Create a token for an Android relay device.",
+      "fields": {
+        "entry_id": {
+          "name": "Config entry ID",
+          "description": "Optional when exactly one Fitorb config entry is loaded. The Fitorb config entry the relay token can upload for."
+        },
+        "label": {
+          "name": "Label",
+          "description": "A label for the relay device, such as the phone name."
+        }
+      }
+    },
+    "revoke_relay_token": {
+      "name": "Revoke Fitorb Relay Token",
+      "description": "Revoke an Android relay token.",
+      "fields": {
+        "token_id": {
+          "name": "Token ID",
+          "description": "The relay token ID returned when the token was created."
         }
       }
     }

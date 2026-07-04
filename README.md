@@ -54,6 +54,73 @@ Home Assistant recorder state rows. Long-term statistics publishing will be
 added after the packet timestamps and units are confirmed with real hardware
 logs.
 
+## Mobile Android Relay
+
+The optional Android relay app is designed for multi-day travel where the ring
+is not near Home Assistant Bluetooth. The app reads the ring on a configurable
+schedule, stores samples locally, and uploads batches to Home Assistant over
+your own HTTPS endpoint at `/api/fitorb/relay/v1/samples`.
+
+Use the `fitorb.create_relay_token` service to create a relay-scoped token for
+one Android device. Store that token in the relay app. The token is only valid
+for Fitorb relay ingest and can be revoked with `fitorb.revoke_relay_token`.
+Treat it as a bearer secret and send it only over HTTPS.
+
+Manual verification:
+
+```yaml
+service: fitorb.create_relay_token
+data:
+  label: "Pixel test"
+```
+
+When exactly one Fitorb ring is loaded, `entry_id` is optional. If multiple
+Fitorb rings are loaded, pass the desired config entry ID explicitly. The
+service response contains `token_id`, `token`, `entry_id`, `ring_id`, and
+`label`. The token begins with `fitorb_relay_`. Use `token` and `ring_id` in the
+Android relay app.
+
+```powershell
+Invoke-RestMethod `
+  -Method Post `
+  -Uri "https://YOUR_HA_HOST/api/fitorb/relay/v1/samples" `
+  -Headers @{ Authorization = "Bearer YOUR_RELAY_TOKEN" } `
+  -ContentType "application/json" `
+  -Body '{
+    "relay_id":"manual-test",
+    "ring_id":"AA:BB:CC:DD:EE:FF",
+    "app_version":"0.1.0",
+    "protocol_version":1,
+    "sent_at":"2026-07-03T10:00:00Z",
+    "samples":[
+      {
+        "sample_id":"manual-heart-1",
+        "ring_id":"AA:BB:CC:DD:EE:FF",
+        "metric":"heart_rate",
+        "timestamp":"2026-07-03T09:55:00Z",
+        "value":72,
+        "unit":"bpm",
+        "source":"android_relay",
+        "captured_at":"2026-07-03T09:55:05Z",
+        "protocol_version":1
+      }
+    ]
+  }'
+```
+
+The first upload should return `manual-heart-1` in `accepted`. Running the same
+request again should return `manual-heart-1` in `duplicates`.
+
+Recommended defaults:
+
+- Ring sync interval: 10 minutes.
+- Scan window: 15-20 seconds.
+- One retry per BLE cycle.
+- Backoff after repeated failures up to 60 minutes.
+
+The relay does not keep a permanent BLE connection to the ring. Upload retries
+reuse locally queued samples and do not wake the ring again.
+
 ## Installation
 
 Copy `custom_components/fitorb` into Home Assistant's `custom_components` directory or add `https://github.com/ichwars/HA-Fitorb` as a HACS custom repository.

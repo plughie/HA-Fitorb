@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
 import logging
+from datetime import UTC, datetime
 
 import pytest
-
-from homeassistant.const import PERCENTAGE
+from homeassistant.const import PERCENTAGE, EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
@@ -15,7 +14,7 @@ from custom_components.fitorb.binary_sensor import (
 )
 from custom_components.fitorb.const import DOMAIN, VERSION
 from custom_components.fitorb.models import FitorbData
-from custom_components.fitorb.sensor import FitorbSensorEntity, SENSOR_DESCRIPTIONS
+from custom_components.fitorb.sensor import SENSOR_DESCRIPTIONS, FitorbSensorEntity
 
 
 class FakeCoordinator(DataUpdateCoordinator[FitorbData]):
@@ -44,6 +43,12 @@ def _sample_data() -> FitorbData:
         last_history_status="success",
         last_history_first_sample=datetime(2026, 6, 25, 0, 0, tzinfo=UTC),
         last_history_last_sample=datetime(2026, 6, 26, 0, 0, tzinfo=UTC),
+        last_relay_upload=datetime(2026, 7, 3, 10, 1, tzinfo=UTC),
+        last_relay_sample_time=datetime(2026, 7, 3, 9, 55, tzinfo=UTC),
+        relay_rejected_samples=1,
+        relay_app_version="0.1.0",
+        relay_backlog=0,
+        relay_recently_active=True,
         sleep_start=datetime(2026, 6, 26, 23, 0, tzinfo=UTC),
         sleep_end=datetime(2026, 6, 27, 5, 8, tzinfo=UTC),
         sleep_duration_minutes=368,
@@ -223,6 +228,23 @@ def test_charging_binary_sensor_with_cached_value_stays_available_when_disconnec
             "timestamp",
         ),
         (
+            "last_relay_upload",
+            datetime(2026, 7, 3, 10, 1, tzinfo=UTC),
+            "last_relay_upload",
+            None,
+            "timestamp",
+        ),
+        (
+            "last_relay_sample_time",
+            datetime(2026, 7, 3, 9, 55, tzinfo=UTC),
+            "last_relay_sample_time",
+            None,
+            "timestamp",
+        ),
+        ("relay_rejected_samples", 1, "relay_rejected_samples", None, None),
+        ("relay_app_version", "0.1.0", "relay_app_version", None, None),
+        ("relay_backlog", 0, "relay_backlog", None, None),
+        (
             "sleep_start",
             datetime(2026, 6, 26, 23, 0, tzinfo=UTC),
             "sleep_start",
@@ -270,6 +292,7 @@ def test_all_sensor_descriptors_map_values_and_metadata(
     [
         ("is_charging", True, "is_charging", "battery_charging"),
         ("connection_state", True, "connection_state", "connectivity"),
+        ("relay_recently_active", True, "relay_recently_active", "connectivity"),
     ],
 )
 def test_all_binary_sensor_descriptors_map_values_and_metadata(
@@ -289,3 +312,21 @@ def test_all_binary_sensor_descriptors_map_values_and_metadata(
     assert entity.has_entity_name is True
     assert description.translation_key == expected_translation_key
     assert description.device_class == expected_device_class
+
+
+def test_relay_descriptors_are_diagnostic_entities() -> None:
+    relay_sensor_keys = (
+        "last_relay_upload",
+        "last_relay_sample_time",
+        "relay_rejected_samples",
+        "relay_app_version",
+        "relay_backlog",
+    )
+
+    for key in relay_sensor_keys:
+        assert SENSOR_DESCRIPTIONS[key].entity_category is EntityCategory.DIAGNOSTIC
+
+    assert (
+        BINARY_SENSOR_DESCRIPTIONS["relay_recently_active"].entity_category
+        is EntityCategory.DIAGNOSTIC
+    )

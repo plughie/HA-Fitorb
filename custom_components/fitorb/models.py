@@ -121,6 +121,12 @@ class FitorbData:
     last_history_last_sample: datetime | None = None
     history_unknown_packets: int = 0
     history_malformed_packets: int = 0
+    last_relay_upload: datetime | None = None
+    last_relay_sample_time: datetime | None = None
+    relay_rejected_samples: int = 0
+    relay_app_version: str | None = None
+    relay_backlog: int | None = None
+    relay_recently_active: bool = False
     unknown_notifications: int = 0
     malformed_notifications: int = 0
 

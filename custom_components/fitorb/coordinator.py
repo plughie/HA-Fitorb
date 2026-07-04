@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
 import logging
+from datetime import UTC, datetime, timedelta
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_ADDRESS, CONF_NAME, CONF_SCAN_INTERVAL
@@ -22,8 +22,10 @@ from .const import (
 )
 from .history_store import FitorbHistoryStore
 from .models import FitorbData, FitorbHistoryRequest
+from .relay import RelayAckResult, RelayBatch, RelayRejectedSample
 
 _LOGGER = logging.getLogger(__name__)
+_RELAY_RECENT_ACTIVITY_WINDOW = timedelta(minutes=30)
 
 
 class FitorbDataUpdateCoordinator(DataUpdateCoordinator[FitorbData]):
@@ -143,7 +145,39 @@ class FitorbDataUpdateCoordinator(DataUpdateCoordinator[FitorbData]):
             last_successful_update=updated_at,
         )
 
-    def _apply_history_store_summary(self, data: FitorbData) -> FitorbData:
+    async def async_record_relay_batch(
+        self,
+        batch: RelayBatch,
+        received_at: datetime,
+    ) -> RelayAckResult:
+        """Persist an Android relay batch and refresh relay diagnostics."""
+        received_at_utc = received_at.astimezone(UTC)
+        if not _ring_ids_match(batch.ring_id, self.base_data.address):
+            return RelayAckResult(
+                accepted=(),
+                duplicates=(),
+                rejected=tuple(
+                    RelayRejectedSample(sample.sample_id, "ring_id_mismatch")
+                    for sample in batch.samples
+                ),
+                server_time=received_at_utc,
+            )
+
+        result = await self.history_store.async_record_relay_batch(batch, received_at)
+        self.async_set_updated_data(
+            self._apply_history_store_summary(
+                self.data or self.base_data,
+                now=received_at_utc,
+            )
+        )
+        return result
+
+    def _apply_history_store_summary(
+        self,
+        data: FitorbData,
+        *,
+        now: datetime | None = None,
+    ) -> FitorbData:
         """Return data with persisted history summary metadata applied."""
         last_sync = self.history_store.last_sync
         last_status = self.history_store.last_status
@@ -153,7 +187,16 @@ class FitorbDataUpdateCoordinator(DataUpdateCoordinator[FitorbData]):
         unknown_packets = self.history_store.unknown_packets
         malformed_packets = self.history_store.malformed_packets
         sleep_summary = self.history_store.sleep_summary
-        if (
+        relay_last_upload = getattr(self.history_store, "relay_last_upload", None)
+        relay_last_sample = getattr(self.history_store, "relay_last_sample", None)
+        relay_rejected_count = getattr(
+            self.history_store,
+            "relay_last_rejected_count",
+            0,
+        )
+        relay_app_version = getattr(self.history_store, "relay_app_version", None)
+        relay_backlog = getattr(self.history_store, "relay_backlog", None)
+        has_history_summary = not (
             last_sync is None
             and last_status is None
             and first_sample is None
@@ -162,28 +205,55 @@ class FitorbDataUpdateCoordinator(DataUpdateCoordinator[FitorbData]):
             and unknown_packets == 0
             and malformed_packets == 0
             and sleep_summary is None
-        ):
+        )
+        has_relay_summary = (
+            relay_last_upload is not None
+            or relay_last_sample is not None
+            or relay_rejected_count != 0
+            or relay_app_version is not None
+            or relay_backlog is not None
+        )
+        if not has_history_summary and not has_relay_summary:
             return data
-        values = {
-            "last_history_sync": last_sync,
-            "last_history_sample_count": sample_count,
-            "last_history_status": last_status,
-            "last_history_first_sample": first_sample,
-            "last_history_last_sample": last_sample,
-            "history_unknown_packets": unknown_packets,
-            "history_malformed_packets": malformed_packets,
-        }
-        if sleep_summary is not None:
+        values = {}
+        if has_history_summary:
             values.update(
                 {
-                    "sleep_start": sleep_summary.start,
-                    "sleep_end": sleep_summary.end,
-                    "sleep_duration_minutes": sleep_summary.duration_minutes,
-                    "sleep_asleep_minutes": sleep_summary.asleep_minutes,
-                    "sleep_awake_minutes": sleep_summary.awake_minutes,
-                    "sleep_light_minutes": sleep_summary.light_minutes,
-                    "sleep_deep_minutes": sleep_summary.deep_minutes,
-                    "sleep_rem_minutes": sleep_summary.rem_minutes,
+                    "last_history_sync": last_sync,
+                    "last_history_sample_count": sample_count,
+                    "last_history_status": last_status,
+                    "last_history_first_sample": first_sample,
+                    "last_history_last_sample": last_sample,
+                    "history_unknown_packets": unknown_packets,
+                    "history_malformed_packets": malformed_packets,
+                }
+            )
+            if sleep_summary is not None:
+                values.update(
+                    {
+                        "sleep_start": sleep_summary.start,
+                        "sleep_end": sleep_summary.end,
+                        "sleep_duration_minutes": sleep_summary.duration_minutes,
+                        "sleep_asleep_minutes": sleep_summary.asleep_minutes,
+                        "sleep_awake_minutes": sleep_summary.awake_minutes,
+                        "sleep_light_minutes": sleep_summary.light_minutes,
+                        "sleep_deep_minutes": sleep_summary.deep_minutes,
+                        "sleep_rem_minutes": sleep_summary.rem_minutes,
+                    }
+                )
+        if has_relay_summary:
+            summary_now = (now or datetime.now(UTC)).astimezone(UTC)
+            values.update(
+                {
+                    "last_relay_upload": relay_last_upload,
+                    "last_relay_sample_time": relay_last_sample,
+                    "relay_rejected_samples": relay_rejected_count,
+                    "relay_app_version": relay_app_version,
+                    "relay_backlog": relay_backlog,
+                    "relay_recently_active": _relay_upload_is_recent(
+                        relay_last_upload,
+                        summary_now,
+                    ),
                 }
             )
         return data.with_values(**values)
@@ -218,3 +288,25 @@ def _has_health_value(data: FitorbData) -> bool:
         or data.spo2 is not None
         or data.stress is not None
     )
+
+
+def _relay_upload_is_recent(
+    last_upload: datetime | None,
+    received_at: datetime,
+) -> bool:
+    """Return whether the latest relay upload is still considered active."""
+    if last_upload is None:
+        return False
+
+    elapsed = received_at - last_upload.astimezone(UTC)
+    return timedelta(0) <= elapsed <= _RELAY_RECENT_ACTIVITY_WINDOW
+
+
+def _ring_ids_match(left: str, right: str) -> bool:
+    """Return whether two ring identifiers refer to the same Bluetooth address."""
+    return _normalized_ring_id(left) == _normalized_ring_id(right)
+
+
+def _normalized_ring_id(value: str) -> str:
+    """Return a separator-agnostic ring identifier."""
+    return "".join(char for char in value if char.isalnum()).lower()
