@@ -9,6 +9,7 @@ from typing import Any
 MAX_RELAY_ID_LENGTH = 128
 MAX_RELAY_SHORT_STRING_LENGTH = 64
 MAX_RELAY_RAW_HEX_LENGTH = 512
+MAX_RELAY_VALUE_STRING_LENGTH = 512
 
 
 class RelayMetric(StrEnum):
@@ -147,6 +148,12 @@ def _parse_sample(
     sample_value = value.get("value")
     if not isinstance(sample_value, int | float | str | bool):
         raise ValueError("sample value has invalid type")
+    if isinstance(sample_value, str):
+        _raise_if_string_too_long(
+            sample_value,
+            "value",
+            max_length=MAX_RELAY_VALUE_STRING_LENGTH,
+        )
     if isinstance(sample_value, float) and not math.isfinite(sample_value):
         raise ValueError("sample value must be finite")
 

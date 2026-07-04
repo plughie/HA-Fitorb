@@ -9,6 +9,7 @@ from custom_components.fitorb.relay import (
     MAX_RELAY_ID_LENGTH,
     MAX_RELAY_RAW_HEX_LENGTH,
     MAX_RELAY_SHORT_STRING_LENGTH,
+    MAX_RELAY_VALUE_STRING_LENGTH,
     RelayAckResult,
     RelayMetric,
     RelayRejectedSample,
@@ -109,6 +110,15 @@ class TestRelayParserSafety(TestCase):
 
                 with self.assertRaisesRegex(ValueError, f"{field} is too long"):
                     parse_relay_batch(payload, max_samples=10)
+
+    def test_rejects_oversized_sample_string_value(self) -> None:
+        payload = _payload()
+        sample = dict(payload["samples"][0])
+        sample["value"] = "v" * (MAX_RELAY_VALUE_STRING_LENGTH + 1)
+        payload["samples"] = [sample]
+
+        with self.assertRaisesRegex(ValueError, "value is too long"):
+            parse_relay_batch(payload, max_samples=10)
 
 
 def test_parse_relay_batch_rejects_metric_mismatch() -> None:

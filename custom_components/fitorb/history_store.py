@@ -321,9 +321,10 @@ def _relay_sample_retention_key(
     timestamp = None
     if isinstance(value, dict):
         timestamp = _parse_datetime(value.get("timestamp"))
-    if timestamp is None:
-        return (0, datetime.min.replace(tzinfo=UTC), sample_id)
-    return (1, timestamp, sample_id)
+    retention_timestamp = timestamp or datetime.min.replace(tzinfo=UTC)
+    if not _is_valid_relay_sample_json(value):
+        return (0, retention_timestamp, sample_id)
+    return (1, retention_timestamp, sample_id)
 
 
 def _is_valid_relay_sample_json(value: object) -> bool:
