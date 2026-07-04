@@ -1,9 +1,15 @@
 package io.github.ichwars.fitorb.relay.data
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 
-@Entity(tableName = "relay_samples")
+@Entity(
+    tableName = "relay_samples",
+    indices = [
+        Index(value = ["delivered", "rejectedReason", "timestamp"]),
+    ],
+)
 data class RelaySampleEntity(
     @PrimaryKey val sampleId: String,
     val ringId: String,

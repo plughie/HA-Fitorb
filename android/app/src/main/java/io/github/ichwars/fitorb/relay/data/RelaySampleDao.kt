@@ -13,9 +13,9 @@ interface RelaySampleDao {
     @Query("SELECT * FROM relay_samples WHERE delivered = 0 AND rejectedReason IS NULL ORDER BY timestamp LIMIT :limit")
     suspend fun pendingBatch(limit: Int): List<RelaySampleEntity>
 
-    @Query("UPDATE relay_samples SET delivered = 1 WHERE sampleId IN (:sampleIds)")
+    @Query("UPDATE relay_samples SET delivered = 1 WHERE sampleId IN (:sampleIds) AND rejectedReason IS NULL")
     suspend fun markDelivered(sampleIds: List<String>)
 
-    @Query("UPDATE relay_samples SET rejectedReason = :reason WHERE sampleId = :sampleId")
+    @Query("UPDATE relay_samples SET rejectedReason = :reason WHERE sampleId = :sampleId AND delivered = 0")
     suspend fun markRejected(sampleId: String, reason: String)
 }

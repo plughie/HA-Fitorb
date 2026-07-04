@@ -2,6 +2,7 @@ package io.github.ichwars.fitorb.relay.data
 
 import android.content.Context
 import androidx.room.Room
+import androidx.sqlite.db.SimpleSQLiteQuery
 import androidx.test.core.app.ApplicationProvider
 import kotlinx.coroutines.test.runTest
 import org.junit.After
@@ -69,6 +70,37 @@ class RelayQueueTest {
         assertTrue(dao.pendingBatch(limit = 10).isEmpty())
     }
 
+    @Test
+    fun terminalStatesCannotBeCrossed() = runTest {
+        dao.insertQueued(
+            sample(
+                sampleId = "sample-delivered",
+                metric = "heart_rate",
+                timestamp = "2026-07-03T09:55:00Z",
+            )
+        )
+        dao.insertQueued(
+            sample(
+                sampleId = "sample-rejected",
+                metric = "skin_temperature",
+                timestamp = "2026-07-03T09:56:00Z",
+            )
+        )
+
+        dao.markDelivered(listOf("sample-delivered"))
+        dao.markRejected("sample-delivered", "late_reject")
+
+        assertEquals(TerminalState(delivered = true), terminalState("sample-delivered"))
+
+        dao.markRejected("sample-rejected", "invalid_metric")
+        dao.markDelivered(listOf("sample-rejected"))
+
+        assertEquals(
+            TerminalState(delivered = false, rejectedReason = "invalid_metric"),
+            terminalState("sample-rejected"),
+        )
+    }
+
     private fun sample(
         sampleId: String,
         metric: String,
@@ -81,5 +113,24 @@ class RelayQueueTest {
         valueJson = "72",
         unit = "bpm",
         capturedAt = "2026-07-03T09:55:05Z",
+    )
+
+    private fun terminalState(sampleId: String): TerminalState {
+        val query = SimpleSQLiteQuery(
+            "SELECT delivered, rejectedReason FROM relay_samples WHERE sampleId = ?",
+            arrayOf(sampleId),
+        )
+        database.query(query).use { cursor ->
+            assertTrue(cursor.moveToFirst())
+            return TerminalState(
+                delivered = cursor.getInt(0) != 0,
+                rejectedReason = if (cursor.isNull(1)) null else cursor.getString(1),
+            )
+        }
+    }
+
+    private data class TerminalState(
+        val delivered: Boolean,
+        val rejectedReason: String? = null,
     )
 }
