@@ -160,6 +160,84 @@ class RelayDtosTest {
         )
     }
 
+    @Test
+    fun sampleValueRejectsNullAndStructuredJsonValues() {
+        assertFailsWith<SerializationException> {
+            json.decodeFromString(RelaySampleValueSerializer, "null")
+        }
+        assertFailsWith<SerializationException> {
+            json.decodeFromString(RelaySampleValueSerializer, "{}")
+        }
+        assertFailsWith<SerializationException> {
+            json.decodeFromString(RelaySampleValueSerializer, "[]")
+        }
+    }
+
+    @Test
+    fun relayAckSerializesWithExactContractFieldNames() {
+        val ack = RelayAckDto(
+            accepted = listOf("sample-heart-1"),
+            duplicates = listOf("sample-heart-0"),
+            rejected = listOf(
+                RejectedSampleDto(
+                    sampleId = "bad-sample",
+                    reason = "invalid_metric",
+                )
+            ),
+            serverTime = "2026-07-03T10:02:00Z",
+        )
+
+        val encoded = json.encodeToString(RelayAckDto.serializer(), ack)
+
+        assertEquals(
+            JsonObject(
+                mapOf(
+                    "accepted" to JsonArray(listOf(JsonPrimitive("sample-heart-1"))),
+                    "duplicates" to JsonArray(listOf(JsonPrimitive("sample-heart-0"))),
+                    "rejected" to JsonArray(
+                        listOf(
+                            JsonObject(
+                                mapOf(
+                                    "sample_id" to JsonPrimitive("bad-sample"),
+                                    "reason" to JsonPrimitive("invalid_metric"),
+                                )
+                            )
+                        )
+                    ),
+                    "server_time" to JsonPrimitive("2026-07-03T10:02:00Z"),
+                )
+            ),
+            json.parseToJsonElement(encoded),
+        )
+    }
+
+    @Test
+    fun relayAckDecodesContractFieldNames() {
+        val payload = """
+            {
+              "accepted": ["sample-heart-1"],
+              "duplicates": ["sample-heart-0"],
+              "rejected": [
+                {
+                  "sample_id": "bad-sample",
+                  "reason": "invalid_metric"
+                }
+              ],
+              "server_time": "2026-07-03T10:02:00Z"
+            }
+        """.trimIndent()
+
+        val ack = json.decodeFromString(RelayAckDto.serializer(), payload)
+
+        assertEquals(listOf("sample-heart-1"), ack.accepted)
+        assertEquals(listOf("sample-heart-0"), ack.duplicates)
+        assertEquals(
+            listOf(RejectedSampleDto(sampleId = "bad-sample", reason = "invalid_metric")),
+            ack.rejected,
+        )
+        assertEquals("2026-07-03T10:02:00Z", ack.serverTime)
+    }
+
     private fun assertPrimitiveJson(
         expected: JsonElement,
         value: RelaySampleValue,

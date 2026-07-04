@@ -1,6 +1,7 @@
 package io.github.ichwars.fitorb.relay.data
 
 import kotlinx.serialization.KSerializer
+import kotlinx.serialization.SerializationException
 import kotlinx.serialization.descriptors.PrimitiveKind
 import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
 import kotlinx.serialization.descriptors.SerialDescriptor
@@ -8,6 +9,8 @@ import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
 import kotlinx.serialization.json.JsonDecoder
 import kotlinx.serialization.json.JsonEncoder
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.intOrNull
@@ -24,7 +27,11 @@ object RelaySampleValueSerializer : KSerializer<RelaySampleValue> {
 
     override fun deserialize(decoder: Decoder): RelaySampleValue {
         require(decoder is JsonDecoder)
-        val primitive = decoder.decodeJsonElement().jsonPrimitive
+        val element = decoder.decodeJsonElement()
+        if (element !is JsonPrimitive || element is JsonNull) {
+            throw SerializationException("RelaySampleValue must be a non-null JSON primitive")
+        }
+        val primitive = element.jsonPrimitive
         if (primitive.isString) {
             return RelaySampleValue.StringValue(primitive.content)
         }
