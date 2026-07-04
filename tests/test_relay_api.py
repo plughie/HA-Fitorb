@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 from datetime import UTC, datetime
 from types import SimpleNamespace
@@ -315,6 +316,70 @@ class TestFitorbRelaySamplesView(IsolatedAsyncioTestCase):
         assert len(hass.http.views) == 1
         assert isinstance(hass.http.views[0], FitorbRelaySamplesView)
         assert hass.data[DOMAIN][fitorb_init.DATA_RELAY_VIEW_REGISTERED] is True
+
+    async def test_relay_token_store_singleton_under_concurrent_setup(self) -> None:
+        class FakeRelayTokenStore:
+            instances: list[FakeRelayTokenStore] = []
+            first_load_started = asyncio.Event()
+            release_first_load = asyncio.Event()
+
+            def __init__(self, hass: object) -> None:
+                self.index = len(type(self).instances)
+                self.loaded = False
+                type(self).instances.append(self)
+
+            async def async_load(self) -> None:
+                if self.index == 0:
+                    type(self).first_load_started.set()
+                    await type(self).release_first_load.wait()
+                self.loaded = True
+
+        class FakeHttp:
+            def __init__(self) -> None:
+                self.views: list[object] = []
+
+            def register_view(self, view: object) -> None:
+                self.views.append(view)
+
+        class FakeServices:
+            def __init__(self) -> None:
+                self.handlers: dict[tuple[str, str], object] = {}
+
+            def has_service(self, domain: str, service: str) -> bool:
+                return (domain, service) in self.handlers
+
+            def async_register(
+                self,
+                domain: str,
+                service: str,
+                handler: object,
+                *args: object,
+                **kwargs: object,
+            ) -> None:
+                self.handlers[(domain, service)] = handler
+
+        hass = SimpleNamespace(data={}, http=FakeHttp(), services=FakeServices())
+
+        with patch.object(fitorb_init, "FitorbRelayTokenStore", FakeRelayTokenStore):
+            first_setup = asyncio.create_task(
+                fitorb_init._async_setup_relay_services(hass)
+            )
+            await asyncio.wait_for(FakeRelayTokenStore.first_load_started.wait(), 1)
+            second_setup = asyncio.create_task(
+                fitorb_init._async_setup_relay_services(hass)
+            )
+            await asyncio.sleep(0)
+            FakeRelayTokenStore.release_first_load.set()
+            await asyncio.wait_for(asyncio.gather(first_setup, second_setup), 1)
+
+        assert len(FakeRelayTokenStore.instances) == 1
+        assert FakeRelayTokenStore.instances[0].loaded is True
+        assert (
+            hass.data[DOMAIN][fitorb_init.DATA_RELAY_TOKENS]
+            is FakeRelayTokenStore.instances[0]
+        )
+        assert len(hass.http.views) == 1
+        assert len(hass.services.handlers) == 2
 
     async def test_coordinator_records_relay_batch_and_updates_diagnostics(
         self,

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 
 import voluptuous as vol
@@ -22,7 +23,12 @@ _LOGGER = logging.getLogger(__name__)
 
 SERVICE_CREATE_RELAY_TOKEN = "create_relay_token"
 SERVICE_REVOKE_RELAY_TOKEN = "revoke_relay_token"
-_RESERVED_DOMAIN_DATA_KEYS = {DATA_RELAY_TOKENS, DATA_RELAY_VIEW_REGISTERED}
+DATA_RELAY_SETUP_LOCK = "relay_setup_lock"
+_RESERVED_DOMAIN_DATA_KEYS = {
+    DATA_RELAY_SETUP_LOCK,
+    DATA_RELAY_TOKENS,
+    DATA_RELAY_VIEW_REGISTERED,
+}
 
 _REQUIRED_STRING = vol.All(str, vol.Length(min=1))
 _CREATE_RELAY_TOKEN_SCHEMA = vol.Schema(
@@ -79,11 +85,7 @@ async def _async_reload_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
 async def _async_setup_relay_services(hass: HomeAssistant) -> None:
     """Set up relay token services."""
     domain_data = hass.data.setdefault(DOMAIN, {})
-    token_store = domain_data.get(DATA_RELAY_TOKENS)
-    if not isinstance(token_store, FitorbRelayTokenStore):
-        token_store = FitorbRelayTokenStore(hass)
-        await token_store.async_load()
-        domain_data[DATA_RELAY_TOKENS] = token_store
+    token_store = await _async_get_relay_token_store(hass, domain_data)
 
     _register_relay_view_once(hass, domain_data)
 
@@ -116,6 +118,27 @@ async def _async_setup_relay_services(hass: HomeAssistant) -> None:
         schema=_REVOKE_RELAY_TOKEN_SCHEMA,
         supports_response=SupportsResponse.ONLY,
     )
+
+
+async def _async_get_relay_token_store(
+    hass: HomeAssistant,
+    domain_data: dict[str, object],
+) -> FitorbRelayTokenStore:
+    """Return the shared relay token store, creating it once."""
+    setup_lock = domain_data.get(DATA_RELAY_SETUP_LOCK)
+    if not isinstance(setup_lock, asyncio.Lock):
+        setup_lock = asyncio.Lock()
+        domain_data[DATA_RELAY_SETUP_LOCK] = setup_lock
+
+    async with setup_lock:
+        token_store = domain_data.get(DATA_RELAY_TOKENS)
+        if isinstance(token_store, FitorbRelayTokenStore):
+            return token_store
+
+        token_store = FitorbRelayTokenStore(hass)
+        await token_store.async_load()
+        domain_data[DATA_RELAY_TOKENS] = token_store
+        return token_store
 
 
 async def _async_create_relay_token_response(
