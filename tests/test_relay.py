@@ -1,10 +1,14 @@
 from __future__ import annotations
 
 from datetime import UTC, date, datetime
+from unittest import TestCase
 
 import pytest
 
 from custom_components.fitorb.relay import (
+    MAX_RELAY_ID_LENGTH,
+    MAX_RELAY_RAW_HEX_LENGTH,
+    MAX_RELAY_SHORT_STRING_LENGTH,
     RelayAckResult,
     RelayMetric,
     RelayRejectedSample,
@@ -57,6 +61,54 @@ def test_parse_relay_batch_rejects_oversized_batches() -> None:
 
     with pytest.raises(ValueError, match="too many samples"):
         parse_relay_batch(payload, max_samples=1)
+
+
+class TestRelayParserSafety(TestCase):
+    def test_rejects_non_finite_float_values(self) -> None:
+        for sample_value in (float("nan"), float("inf"), float("-inf")):
+            with self.subTest(sample_value=sample_value):
+                payload = _payload()
+                sample = dict(payload["samples"][0])
+                sample["value"] = sample_value
+                payload["samples"] = [sample]
+
+                with self.assertRaisesRegex(ValueError, "finite"):
+                    parse_relay_batch(payload, max_samples=10)
+
+    def test_rejects_oversized_batch_strings(self) -> None:
+        cases = (
+            ("relay_id", "r" * (MAX_RELAY_ID_LENGTH + 1)),
+            ("ring_id", "r" * (MAX_RELAY_ID_LENGTH + 1)),
+            ("app_version", "a" * (MAX_RELAY_SHORT_STRING_LENGTH + 1)),
+        )
+
+        for field, value in cases:
+            with self.subTest(field=field):
+                payload = _payload()
+                payload[field] = value
+
+                with self.assertRaisesRegex(ValueError, f"{field} is too long"):
+                    parse_relay_batch(payload, max_samples=10)
+
+    def test_rejects_oversized_sample_strings(self) -> None:
+        cases = (
+            ("sample_id", "s" * (MAX_RELAY_ID_LENGTH + 1)),
+            ("ring_id", "r" * (MAX_RELAY_ID_LENGTH + 1)),
+            ("metric", "m" * (MAX_RELAY_SHORT_STRING_LENGTH + 1)),
+            ("unit", "u" * (MAX_RELAY_SHORT_STRING_LENGTH + 1)),
+            ("source", "s" * (MAX_RELAY_SHORT_STRING_LENGTH + 1)),
+            ("raw_hex", "A" * (MAX_RELAY_RAW_HEX_LENGTH + 1)),
+        )
+
+        for field, value in cases:
+            with self.subTest(field=field):
+                payload = _payload()
+                sample = dict(payload["samples"][0])
+                sample[field] = value
+                payload["samples"] = [sample]
+
+                with self.assertRaisesRegex(ValueError, f"{field} is too long"):
+                    parse_relay_batch(payload, max_samples=10)
 
 
 def test_parse_relay_batch_rejects_metric_mismatch() -> None:

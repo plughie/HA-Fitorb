@@ -24,7 +24,7 @@ class FitorbRelayApiTest {
     private val json = Json { ignoreUnknownKeys = true }
 
     @Test
-    fun uploadSendsBearerTokenAndParsesAck() = runTest {
+    fun uploadRejectsHttpBaseUrlBeforeSendingRequest() = runTest {
         val server = MockWebServer()
         server.enqueue(
             MockResponse()
@@ -36,6 +36,31 @@ class FitorbRelayApiTest {
         server.start()
         try {
             val api = FitorbRelayApi(server.url("/").toString())
+
+            val exception = assertFailsWith<RelayUploadException> {
+                api.upload(sampleBatch(), "secret-token")
+            }
+
+            assertEquals("HTTPS required", exception.message)
+            assertEquals(0, server.requestCount)
+        } finally {
+            server.shutdown()
+        }
+    }
+
+    @Test
+    fun uploadSendsBearerTokenAndParsesAck() = runTest {
+        val server = MockWebServer()
+        server.enqueue(
+            MockResponse()
+                .setResponseCode(200)
+                .setBody(
+                    """{"accepted":["sample-heart-1"],"duplicates":[],"rejected":[],"server_time":"2026-07-03T10:01:00Z"}"""
+                )
+        )
+        server.start()
+        try {
+            val api = FitorbRelayApi(server.url("/").toString(), requireHttps = false)
             val ack = api.upload(sampleBatch(), "secret-token")
             val request = server.takeRequest()
 
@@ -66,7 +91,7 @@ class FitorbRelayApiTest {
         )
         server.start()
         try {
-            val api = FitorbRelayApi(server.url("/").toString())
+            val api = FitorbRelayApi(server.url("/").toString(), requireHttps = false)
 
             val exception = assertFailsWith<RelayUploadException> {
                 api.upload(sampleBatch(), "secret-token")
@@ -88,7 +113,7 @@ class FitorbRelayApiTest {
         )
         server.start()
         try {
-            val api = FitorbRelayApi(server.url("/").toString())
+            val api = FitorbRelayApi(server.url("/").toString(), requireHttps = false)
 
             val exception = assertFailsWith<RelayUploadException> {
                 api.upload(sampleBatch(), "secret-token")
@@ -110,7 +135,7 @@ class FitorbRelayApiTest {
         )
         server.start()
         try {
-            val api = FitorbRelayApi(server.url("/").toString())
+            val api = FitorbRelayApi(server.url("/").toString(), requireHttps = false)
 
             val exception = assertFailsWith<RelayUploadException> {
                 api.upload(sampleBatch(), "secret-token")

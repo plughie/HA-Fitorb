@@ -25,16 +25,21 @@ class _FakeStore:
         self._saved[self.key] = copy.deepcopy(data)
 
 
-def _sample(sample_id: str, value: int = 72) -> RelaySample:
+def _sample(
+    sample_id: str,
+    value: int = 72,
+    timestamp: datetime | None = None,
+) -> RelaySample:
+    sample_time = timestamp or datetime(2026, 7, 3, 9, 55, tzinfo=UTC)
     return RelaySample(
         sample_id=sample_id,
         ring_id="AA:BB:CC:DD:EE:FF",
         metric=RelayMetric.HEART_RATE,
-        timestamp=datetime(2026, 7, 3, 9, 55, tzinfo=UTC),
+        timestamp=sample_time,
         value=value,
         unit="bpm",
         source="android_relay",
-        captured_at=datetime(2026, 7, 3, 9, 55, 5, tzinfo=UTC),
+        captured_at=sample_time + timedelta(seconds=5),
         protocol_version=1,
     )
 
@@ -161,6 +166,69 @@ class TestRelayHistoryStore(IsolatedAsyncioTestCase):
         assert reloaded_store.relay_backlog == 7
         persisted = _FakeStore._saved["fitorb_history_entry-id"]
         assert persisted["relay"]["backlog"] == 7
+
+    async def test_record_relay_batch_prunes_oldest_relay_samples(self) -> None:
+        from custom_components.fitorb.history_store import (
+            FitorbHistoryStore,
+            MAX_RELAY_STORED_SAMPLES,
+        )
+
+        assert MAX_RELAY_STORED_SAMPLES == 10000
+        _FakeStore._saved["fitorb_history_entry-id"] = {
+            "relay": {
+                "last_upload": "2026-07-03T10:00:00+00:00",
+                "last_sample": None,
+                "last_rejected_count": 0,
+                "app_version": "0.1.0",
+                "samples": {
+                    "malformed-timestamp": {
+                        "sample_id": "malformed-timestamp",
+                        "ring_id": "AA:BB:CC:DD:EE:FF",
+                        "metric": "heart_rate",
+                        "timestamp": "not-a-timestamp",
+                        "value": 72,
+                        "unit": "bpm",
+                        "source": "android_relay",
+                        "captured_at": "2026-07-03T09:54:05+00:00",
+                        "protocol_version": 1,
+                    }
+                },
+            }
+        }
+
+        with patch("custom_components.fitorb.history_store.MAX_RELAY_STORED_SAMPLES", 3):
+            store = FitorbHistoryStore(object(), "entry-id")
+            await store.async_load()
+            await store.async_record_relay_batch(
+                _batch(
+                    _sample(
+                        "oldest-valid",
+                        timestamp=datetime(2026, 7, 3, 9, 55, tzinfo=UTC),
+                    ),
+                    _sample(
+                        "middle-valid",
+                        timestamp=datetime(2026, 7, 3, 9, 56, tzinfo=UTC),
+                    ),
+                    _sample(
+                        "newer-valid",
+                        timestamp=datetime(2026, 7, 3, 9, 57, tzinfo=UTC),
+                    ),
+                    _sample(
+                        "newest-valid",
+                        timestamp=datetime(2026, 7, 3, 9, 58, tzinfo=UTC),
+                    ),
+                ),
+                datetime(2026, 7, 3, 10, 1, tzinfo=UTC),
+            )
+
+        persisted = _FakeStore._saved["fitorb_history_entry-id"]
+        relay_samples = persisted["relay"]["samples"]
+        assert set(relay_samples) == {
+            "middle-valid",
+            "newer-valid",
+            "newest-valid",
+        }
+        assert persisted["relay"]["last_sample"] == "2026-07-03T09:58:00+00:00"
 
     async def test_load_ignores_invalid_relay_backlog(self) -> None:
         from custom_components.fitorb.history_store import FitorbHistoryStore

@@ -17,6 +17,7 @@ from .relay import (
 )
 
 _STORE_VERSION = 1
+MAX_RELAY_STORED_SAMPLES = 10000
 
 
 class FitorbHistoryStore:
@@ -191,6 +192,7 @@ class FitorbHistoryStore:
             samples[sample.sample_id] = _relay_sample_to_json(sample)
             accepted.append(sample.sample_id)
 
+        _prune_relay_samples(samples)
         relay["last_upload"] = received_at_utc.isoformat()
         relay["last_rejected_count"] = len(rejected)
         relay["app_version"] = batch.app_version
@@ -223,6 +225,7 @@ class FitorbHistoryStore:
                 for key, item in samples.items()
                 if isinstance(key, str)
             }
+        _prune_relay_samples(samples)
         relay["samples"] = samples
 
         last_upload = _parse_datetime(relay.get("last_upload"))
@@ -297,6 +300,30 @@ def _latest_relay_timestamp(samples: dict[str, object]) -> str | None:
         if timestamp is not None:
             timestamps.append(timestamp)
     return max(timestamps).isoformat() if timestamps else None
+
+
+def _prune_relay_samples(samples: dict[str, object]) -> None:
+    overflow = len(samples) - MAX_RELAY_STORED_SAMPLES
+    if overflow <= 0:
+        return
+
+    for key, _item in sorted(
+        samples.items(),
+        key=lambda item: _relay_sample_retention_key(item[0], item[1]),
+    )[:overflow]:
+        samples.pop(key, None)
+
+
+def _relay_sample_retention_key(
+    sample_id: str,
+    value: object,
+) -> tuple[int, datetime, str]:
+    timestamp = None
+    if isinstance(value, dict):
+        timestamp = _parse_datetime(value.get("timestamp"))
+    if timestamp is None:
+        return (0, datetime.min.replace(tzinfo=UTC), sample_id)
+    return (1, timestamp, sample_id)
 
 
 def _is_valid_relay_sample_json(value: object) -> bool:

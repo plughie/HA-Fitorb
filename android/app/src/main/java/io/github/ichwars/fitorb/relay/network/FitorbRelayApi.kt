@@ -17,13 +17,15 @@ class FitorbRelayApi(
     private val baseUrl: String,
     private val client: OkHttpClient = OkHttpClient(),
     private val json: Json = Json { ignoreUnknownKeys = true },
+    private val requireHttps: Boolean = true,
 ) {
     suspend fun upload(batch: RelayBatchDto, token: String): RelayAckDto =
         withContext(Dispatchers.IO) {
+            val url = relaySamplesUrl()
             val body = json.encodeToString(RelayBatchDto.serializer(), batch)
                 .toRequestBody("application/json".toMediaType())
             val request = Request.Builder()
-                .url(relaySamplesUrl())
+                .url(url)
                 .header("Authorization", "Bearer $token")
                 .post(body)
                 .build()
@@ -52,7 +54,11 @@ class FitorbRelayApi(
             }
         }
 
-    private fun relaySamplesUrl() = baseUrl.toHttpUrl()
+    private fun relaySamplesUrl() = baseUrl.toHttpUrl().also { url ->
+        if (requireHttps && !url.isHttps) {
+            throw RelayUploadException("HTTPS required")
+        }
+    }
         .newBuilder()
         .addPathSegments("api/fitorb/relay/v1/samples")
         .build()
