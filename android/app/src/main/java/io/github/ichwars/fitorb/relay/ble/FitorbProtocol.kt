@@ -12,6 +12,9 @@ object FitorbProtocol {
     fun buildCommand(hexPayload: String): ByteArray {
         require(hexPayload.length % 2 == 0) { "hex payload must have even length" }
         require(hexPayload.length <= 30) { "hex payload must fit in one packet" }
+        require(hexPayload.all { it in '0'..'9' || it in 'a'..'f' || it in 'A'..'F' }) {
+            "hex payload must contain only hex digits"
+        }
         val command = ByteArray(16)
         hexPayload.chunked(2).forEachIndexed { index, chunk ->
             command[index] = chunk.toInt(16).toByte()

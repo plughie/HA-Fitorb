@@ -37,6 +37,16 @@ class FitorbProtocolTest {
     }
 
     @Test
+    fun buildCommandRejectsSignedHexChunks() {
+        assertFailsWith<IllegalArgumentException> {
+            FitorbProtocol.buildCommand("+f")
+        }
+        assertFailsWith<IllegalArgumentException> {
+            FitorbProtocol.buildCommand("-1")
+        }
+    }
+
+    @Test
     fun buildCommandAcceptsMaxLengthPayloadAndAddsChecksum() {
         assertContentEquals(
             packet(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 120),
