@@ -73,6 +73,16 @@ async def async_get_config_entry_diagnostics(
             "unknown_packets": data.history_unknown_packets if data else 0,
             "malformed_packets": data.history_malformed_packets if data else 0,
         },
+        "relay": {
+            "last_upload": _iso_or_none(data.last_relay_upload) if data else None,
+            "last_sample_time": _iso_or_none(data.last_relay_sample_time)
+            if data
+            else None,
+            "rejected_samples": data.relay_rejected_samples if data else 0,
+            "app_version": data.relay_app_version if data else None,
+            "backlog": data.relay_backlog if data else 0,
+            "recently_active": data.relay_recently_active if data else False,
+        },
         "sleep": {
             "start": _iso_or_none(data.sleep_start) if data else None,
             "end": _iso_or_none(data.sleep_end) if data else None,

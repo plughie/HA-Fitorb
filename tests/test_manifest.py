@@ -27,6 +27,7 @@ def test_manifest_version_matches_runtime_version() -> None:
         (ROOT / "custom_components" / "fitorb" / "manifest.json").read_text()
     )
 
+    assert VERSION == "0.3.0"
     assert manifest["version"] == VERSION
 
 

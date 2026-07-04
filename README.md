@@ -54,6 +54,27 @@ Home Assistant recorder state rows. Long-term statistics publishing will be
 added after the packet timestamps and units are confirmed with real hardware
 logs.
 
+## Mobile Android Relay
+
+The optional Android relay app is designed for multi-day travel where the ring
+is not near Home Assistant Bluetooth. The app reads the ring on a configurable
+schedule, stores samples locally, and uploads batches to Home Assistant over
+your own HTTPS endpoint.
+
+Use the `fitorb.create_relay_token` service to create a relay-scoped token for
+one Android device. Store that token in the relay app. The token is only valid
+for Fitorb relay ingest and can be revoked with `fitorb.revoke_relay_token`.
+
+Recommended defaults:
+
+- Ring sync interval: 10 minutes.
+- Scan window: 15-20 seconds.
+- One retry per BLE cycle.
+- Backoff after repeated failures up to 60 minutes.
+
+The relay does not keep a permanent BLE connection to the ring. Upload retries
+reuse locally queued samples and do not wake the ring again.
+
 ## Installation
 
 Copy `custom_components/fitorb` into Home Assistant's `custom_components` directory or add `https://github.com/ichwars/HA-Fitorb` as a HACS custom repository.

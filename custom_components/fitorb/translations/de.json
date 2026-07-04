@@ -44,11 +44,17 @@
       "last_history_sample_count": { "name": "History-Samples" },
       "last_history_status": { "name": "History-Sync-Status" },
       "last_history_first_sample": { "name": "Erstes History-Sample" },
-      "last_history_last_sample": { "name": "Letztes History-Sample" }
+      "last_history_last_sample": { "name": "Letztes History-Sample" },
+      "last_relay_upload": { "name": "Letzter mobiler Relay Upload" },
+      "last_relay_sample_time": { "name": "Letzter mobiler Relay Messpunkt" },
+      "relay_rejected_samples": { "name": "Abgelehnte Relay Samples" },
+      "relay_app_version": { "name": "Relay App Version" },
+      "relay_backlog": { "name": "Relay Warteschlange" }
     },
     "binary_sensor": {
       "is_charging": { "name": "Lädt" },
-      "connection_state": { "name": "Verbindung" }
+      "connection_state": { "name": "Verbindung" },
+      "relay_recently_active": { "name": "Mobiler Relay kuerzlich aktiv" }
     }
   },
   "options": {
