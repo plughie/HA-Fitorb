@@ -4,7 +4,7 @@ import logging
 from datetime import UTC, datetime
 
 import pytest
-from homeassistant.const import PERCENTAGE
+from homeassistant.const import PERCENTAGE, EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
@@ -312,3 +312,21 @@ def test_all_binary_sensor_descriptors_map_values_and_metadata(
     assert entity.has_entity_name is True
     assert description.translation_key == expected_translation_key
     assert description.device_class == expected_device_class
+
+
+def test_relay_descriptors_are_diagnostic_entities() -> None:
+    relay_sensor_keys = (
+        "last_relay_upload",
+        "last_relay_sample_time",
+        "relay_rejected_samples",
+        "relay_app_version",
+        "relay_backlog",
+    )
+
+    for key in relay_sensor_keys:
+        assert SENSOR_DESCRIPTIONS[key].entity_category is EntityCategory.DIAGNOSTIC
+
+    assert (
+        BINARY_SENSOR_DESCRIPTIONS["relay_recently_active"].entity_category
+        is EntityCategory.DIAGNOSTIC
+    )

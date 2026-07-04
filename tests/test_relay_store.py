@@ -39,7 +39,7 @@ def _sample(sample_id: str, value: int = 72) -> RelaySample:
     )
 
 
-def _batch(*samples: RelaySample) -> RelayBatch:
+def _batch(*samples: RelaySample, backlog: int | None = None) -> RelayBatch:
     return RelayBatch(
         relay_id="pixel-8",
         ring_id="AA:BB:CC:DD:EE:FF",
@@ -47,6 +47,7 @@ def _batch(*samples: RelaySample) -> RelayBatch:
         protocol_version=1,
         sent_at=datetime(2026, 7, 3, 10, 0, tzinfo=UTC),
         samples=samples,
+        backlog=backlog,
     )
 
 
@@ -69,7 +70,7 @@ class TestRelayHistoryStore(IsolatedAsyncioTestCase):
         store = FitorbHistoryStore(object(), "entry-id")
         await store.async_load()
         first = await store.async_record_relay_batch(
-            _batch(_sample("sample-heart-1")),
+            _batch(_sample("sample-heart-1"), backlog=3),
             datetime(2026, 7, 3, 10, 1, tzinfo=UTC),
         )
         second = await store.async_record_relay_batch(
@@ -84,6 +85,9 @@ class TestRelayHistoryStore(IsolatedAsyncioTestCase):
         assert store.relay_last_upload == datetime(2026, 7, 3, 10, 2, tzinfo=UTC)
         assert store.relay_last_sample == datetime(2026, 7, 3, 9, 55, tzinfo=UTC)
         assert store.relay_app_version == "0.1.0"
+        assert store.relay_backlog is None
+        persisted = _FakeStore._saved["fitorb_history_entry-id"]
+        assert persisted["relay"]["backlog"] is None
 
     async def test_record_relay_batch_deduplicates_across_reload(self) -> None:
         from custom_components.fitorb.history_store import FitorbHistoryStore
@@ -121,6 +125,7 @@ class TestRelayHistoryStore(IsolatedAsyncioTestCase):
                 "last_sample": "2026-07-03T09:55:00+00:00",
                 "last_rejected_count": 0,
                 "app_version": "0.1.0",
+                "backlog": 4,
                 "samples": {"sample-heart-1": "bad-shape"},
             }
         }
@@ -128,16 +133,53 @@ class TestRelayHistoryStore(IsolatedAsyncioTestCase):
         store = FitorbHistoryStore(object(), "entry-id")
         await store.async_load()
         result = await store.async_record_relay_batch(
-            _batch(_sample("sample-heart-1")),
+            _batch(_sample("sample-heart-1"), backlog=4),
             datetime(2026, 7, 3, 10, 1, tzinfo=UTC),
         )
 
         assert result.accepted == ()
         assert result.duplicates == ("sample-heart-1",)
+        assert store.relay_backlog == 4
         assert store.relay_last_sample == datetime(2026, 7, 3, 9, 55, tzinfo=UTC)
         persisted = _FakeStore._saved["fitorb_history_entry-id"]
         assert persisted["relay"]["samples"]["sample-heart-1"] == "bad-shape"
         assert persisted["relay"]["last_sample"] == "2026-07-03T09:55:00+00:00"
+
+    async def test_record_relay_batch_persists_backlog(self) -> None:
+        from custom_components.fitorb.history_store import FitorbHistoryStore
+
+        store = FitorbHistoryStore(object(), "entry-id")
+        await store.async_load()
+
+        await store.async_record_relay_batch(
+            _batch(_sample("sample-heart-1"), backlog=7),
+            datetime(2026, 7, 3, 10, 1, tzinfo=UTC),
+        )
+        reloaded_store = FitorbHistoryStore(object(), "entry-id")
+        await reloaded_store.async_load()
+
+        assert reloaded_store.relay_backlog == 7
+        persisted = _FakeStore._saved["fitorb_history_entry-id"]
+        assert persisted["relay"]["backlog"] == 7
+
+    async def test_load_ignores_invalid_relay_backlog(self) -> None:
+        from custom_components.fitorb.history_store import FitorbHistoryStore
+
+        _FakeStore._saved["fitorb_history_entry-id"] = {
+            "relay": {
+                "last_upload": "2026-07-03T10:00:00+00:00",
+                "last_sample": None,
+                "last_rejected_count": 0,
+                "app_version": "0.1.0",
+                "backlog": -1,
+                "samples": {},
+            }
+        }
+
+        store = FitorbHistoryStore(object(), "entry-id")
+        await store.async_load()
+
+        assert store.relay_backlog is None
 
     async def test_relay_last_sample_ignores_malformed_future_timestamp(self) -> None:
         from custom_components.fitorb.history_store import FitorbHistoryStore

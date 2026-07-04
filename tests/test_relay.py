@@ -20,6 +20,7 @@ def _payload() -> dict[str, object]:
         "app_version": "0.1.0",
         "protocol_version": 1,
         "sent_at": "2026-07-03T10:00:00Z",
+        "backlog": 0,
         "samples": [
             {
                 "sample_id": "sample-heart-1",
@@ -43,6 +44,7 @@ def test_parse_relay_batch_normalizes_timestamps_and_metric() -> None:
     assert batch.relay_id == "pixel-8"
     assert batch.ring_id == "AA:BB:CC:DD:EE:FF"
     assert batch.sent_at == datetime(2026, 7, 3, 10, 0, tzinfo=UTC)
+    assert batch.backlog == 0
     assert len(batch.samples) == 1
     assert batch.samples[0].metric is RelayMetric.HEART_RATE
     assert batch.samples[0].timestamp == datetime(2026, 7, 3, 9, 55, tzinfo=UTC)
@@ -110,6 +112,24 @@ def test_parse_relay_batch_rejects_zero_sample_protocol_version() -> None:
     payload["samples"] = [sample]
 
     with pytest.raises(ValueError, match="protocol_version"):
+        parse_relay_batch(payload, max_samples=10)
+
+
+def test_parse_relay_batch_allows_missing_backlog() -> None:
+    payload = _payload()
+    payload.pop("backlog")
+
+    batch = parse_relay_batch(payload, max_samples=10)
+
+    assert batch.backlog is None
+
+
+@pytest.mark.parametrize("backlog", [-1, True])
+def test_parse_relay_batch_rejects_invalid_backlog(backlog: object) -> None:
+    payload = _payload()
+    payload["backlog"] = backlog
+
+    with pytest.raises(ValueError, match="backlog"):
         parse_relay_batch(payload, max_samples=10)
 
 

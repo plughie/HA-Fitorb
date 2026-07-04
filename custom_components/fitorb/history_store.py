@@ -43,6 +43,7 @@ class FitorbHistoryStore:
                 "last_sample": None,
                 "last_rejected_count": 0,
                 "app_version": None,
+                "backlog": None,
                 "samples": {},
             },
         }
@@ -108,6 +109,11 @@ class FitorbHistoryStore:
         """Return the last relay app version."""
         value = self._relay_data().get("app_version")
         return value if isinstance(value, str) else None
+
+    @property
+    def relay_backlog(self) -> int | None:
+        """Return the last relay app backlog count."""
+        return _parse_optional_nonnegative_int(self._relay_data().get("backlog"))
 
     async def async_load(self) -> None:
         """Load store data from disk."""
@@ -188,6 +194,7 @@ class FitorbHistoryStore:
         relay["last_upload"] = received_at_utc.isoformat()
         relay["last_rejected_count"] = len(rejected)
         relay["app_version"] = batch.app_version
+        relay["backlog"] = batch.backlog
         latest_sample = _latest_relay_timestamp(samples)
         if latest_sample is not None:
             relay["last_sample"] = latest_sample
@@ -236,6 +243,7 @@ class FitorbHistoryStore:
 
         app_version = relay.get("app_version")
         relay["app_version"] = app_version if isinstance(app_version, str) else None
+        relay["backlog"] = _parse_optional_nonnegative_int(relay.get("backlog"))
         return relay
 
 
@@ -383,3 +391,13 @@ def _parse_int(value: object) -> int:
         return int(value or 0)
     except (TypeError, ValueError):
         return 0
+
+
+def _parse_optional_nonnegative_int(value: object) -> int | None:
+    if isinstance(value, bool):
+        return None
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return None
+    return parsed if parsed >= 0 else None

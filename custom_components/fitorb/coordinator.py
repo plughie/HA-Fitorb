@@ -195,6 +195,7 @@ class FitorbDataUpdateCoordinator(DataUpdateCoordinator[FitorbData]):
             0,
         )
         relay_app_version = getattr(self.history_store, "relay_app_version", None)
+        relay_backlog = getattr(self.history_store, "relay_backlog", None)
         has_history_summary = not (
             last_sync is None
             and last_status is None
@@ -210,6 +211,7 @@ class FitorbDataUpdateCoordinator(DataUpdateCoordinator[FitorbData]):
             or relay_last_sample is not None
             or relay_rejected_count != 0
             or relay_app_version is not None
+            or relay_backlog is not None
         )
         if not has_history_summary and not has_relay_summary:
             return data
@@ -247,6 +249,7 @@ class FitorbDataUpdateCoordinator(DataUpdateCoordinator[FitorbData]):
                     "last_relay_sample_time": relay_last_sample,
                     "relay_rejected_samples": relay_rejected_count,
                     "relay_app_version": relay_app_version,
+                    "relay_backlog": relay_backlog,
                     "relay_recently_active": _relay_upload_is_recent(
                         relay_last_upload,
                         summary_now,

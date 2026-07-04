@@ -33,6 +33,7 @@ def _payload() -> dict[str, object]:
         "app_version": "0.1.0",
         "protocol_version": 1,
         "sent_at": "2026-07-03T10:00:00Z",
+        "backlog": 5,
         "samples": [
             {
                 "sample_id": "sample-heart-1",
@@ -123,6 +124,7 @@ class _FakeHistoryStore:
         self.relay_last_sample = None
         self.relay_last_rejected_count = 0
         self.relay_app_version = None
+        self.relay_backlog = None
         self.recorded_relay_batches: list[tuple[RelayBatch, datetime]] = []
 
     async def async_record_relay_batch(
@@ -135,6 +137,7 @@ class _FakeHistoryStore:
         self.relay_last_sample = max(sample.timestamp for sample in batch.samples)
         self.relay_last_rejected_count = 1
         self.relay_app_version = batch.app_version
+        self.relay_backlog = batch.backlog
         return RelayAckResult(
             accepted=("sample-heart-1",),
             duplicates=(),
@@ -239,6 +242,7 @@ class TestFitorbRelaySamplesView(IsolatedAsyncioTestCase):
         assert len(coordinator.recorded) == 1
         batch, recorded_at = coordinator.recorded[0]
         assert batch.relay_id == "pixel-8"
+        assert batch.backlog == 5
         assert batch.samples[0].sample_id == "sample-heart-1"
         assert recorded_at == received_at
 
@@ -443,6 +447,7 @@ class TestFitorbRelaySamplesView(IsolatedAsyncioTestCase):
             protocol_version=1,
             sent_at=datetime(2026, 7, 3, 10, 0, tzinfo=UTC),
             samples=(sample,),
+            backlog=5,
         )
         received_at = datetime(2026, 7, 3, 10, 2, tzinfo=UTC)
 
@@ -459,6 +464,7 @@ class TestFitorbRelaySamplesView(IsolatedAsyncioTestCase):
         assert coordinator.data.last_relay_sample_time == sample.timestamp
         assert coordinator.data.relay_rejected_samples == 1
         assert coordinator.data.relay_app_version == "0.1.0"
+        assert coordinator.data.relay_backlog == 5
         assert coordinator.data.relay_recently_active is True
 
     async def test_coordinator_rejects_relay_batch_for_different_ring(self) -> None:
@@ -515,6 +521,7 @@ class TestFitorbRelaySamplesView(IsolatedAsyncioTestCase):
         store.relay_last_sample = datetime(2026, 7, 3, 9, 55, tzinfo=UTC)
         store.relay_last_rejected_count = 2
         store.relay_app_version = "0.1.0"
+        store.relay_backlog = 4
         coordinator = FitorbDataUpdateCoordinator(
             SimpleNamespace(),
             entry,
@@ -535,5 +542,6 @@ class TestFitorbRelaySamplesView(IsolatedAsyncioTestCase):
         assert recent.last_relay_sample_time == store.relay_last_sample
         assert recent.relay_rejected_samples == 2
         assert recent.relay_app_version == "0.1.0"
+        assert recent.relay_backlog == 4
         assert recent.relay_recently_active is True
         assert stale.relay_recently_active is False

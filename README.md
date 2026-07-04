@@ -59,11 +59,12 @@ logs.
 The optional Android relay app is designed for multi-day travel where the ring
 is not near Home Assistant Bluetooth. The app reads the ring on a configurable
 schedule, stores samples locally, and uploads batches to Home Assistant over
-your own HTTPS endpoint.
+your own HTTPS endpoint at `/api/fitorb/relay/v1/samples`.
 
 Use the `fitorb.create_relay_token` service to create a relay-scoped token for
 one Android device. Store that token in the relay app. The token is only valid
 for Fitorb relay ingest and can be revoked with `fitorb.revoke_relay_token`.
+Treat it as a bearer secret and send it only over HTTPS.
 
 Recommended defaults:
 

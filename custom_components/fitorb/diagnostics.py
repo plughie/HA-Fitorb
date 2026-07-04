@@ -80,7 +80,7 @@ async def async_get_config_entry_diagnostics(
             else None,
             "rejected_samples": data.relay_rejected_samples if data else 0,
             "app_version": data.relay_app_version if data else None,
-            "backlog": data.relay_backlog if data else 0,
+            "backlog": data.relay_backlog if data else None,
             "recently_active": data.relay_recently_active if data else False,
         },
         "sleep": {

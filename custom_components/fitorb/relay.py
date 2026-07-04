@@ -49,6 +49,7 @@ class RelayBatch:
     protocol_version: int
     sent_at: datetime
     samples: tuple[RelaySample, ...]
+    backlog: int | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -76,6 +77,7 @@ def parse_relay_batch(payload: dict[str, object], *, max_samples: int) -> RelayB
     app_version = _required_str(payload, "app_version")
     protocol_version = _required_positive_int(payload, "protocol_version")
     sent_at = _parse_datetime(_required_str(payload, "sent_at"))
+    backlog = _optional_nonnegative_int(payload.get("backlog"), "backlog")
     raw_samples = payload.get("samples")
     if not isinstance(raw_samples, list):
         raise ValueError("samples must be a list")
@@ -93,6 +95,7 @@ def parse_relay_batch(payload: dict[str, object], *, max_samples: int) -> RelayB
         protocol_version=protocol_version,
         sent_at=sent_at,
         samples=samples,
+        backlog=backlog,
     )
 
 
@@ -182,6 +185,14 @@ def _optional_positive_int(value: object, key: str) -> int | None:
         return None
     if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
         raise ValueError(f"{key} must be a positive integer")
+    return value
+
+
+def _optional_nonnegative_int(value: object, key: str) -> int | None:
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+        raise ValueError(f"{key} must be a non-negative integer")
     return value
 
 
