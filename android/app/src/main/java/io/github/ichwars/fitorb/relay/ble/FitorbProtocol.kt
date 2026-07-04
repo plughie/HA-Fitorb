@@ -3,9 +3,9 @@ package io.github.ichwars.fitorb.relay.ble
 sealed interface ParsedRingPacket {
     data class Battery(val batteryLevel: Int, val isCharging: Boolean) : ParsedRingPacket
     data class Activity(val steps: Int, val calories: Int, val distance: Int) : ParsedRingPacket
-    data class HeartRate(val value: Int?) : ParsedRingPacket
-    data class Spo2(val value: Int?) : ParsedRingPacket
-    data class Stress(val value: Int?) : ParsedRingPacket
+    data class HeartRate(val value: Int?, val running: Boolean) : ParsedRingPacket
+    data class Spo2(val value: Int?, val running: Boolean) : ParsedRingPacket
+    data class Stress(val value: Int?, val running: Boolean) : ParsedRingPacket
 }
 
 object FitorbProtocol {
@@ -27,7 +27,7 @@ object FitorbProtocol {
         if (first == 0x03) {
             return ParsedRingPacket.Battery(
                 batteryLevel = payload[1].toInt() and 0xff,
-                isCharging = payload[2].toInt() == 1,
+                isCharging = (payload[2].toInt() and 0xff) == 1,
             )
         }
         if (first == 0x73 && second == 0x12) {
@@ -43,17 +43,28 @@ object FitorbProtocol {
             return ParsedRingPacket.Activity(steps, calories, distance)
         }
         if (first == 0x69 && second == 0x01) {
-            val value = payload[3].toInt() and 0xff
-            return ParsedRingPacket.HeartRate(value.takeIf { it > 0 })
+            val health = parseHealthPacket(payload)
+            return ParsedRingPacket.HeartRate(health.value, health.running)
         }
         if (first == 0x69 && second == 0x03) {
-            val value = payload[3].toInt() and 0xff
-            return ParsedRingPacket.Spo2(value.takeIf { it > 0 })
+            val health = parseHealthPacket(payload)
+            return ParsedRingPacket.Spo2(health.value, health.running)
         }
         if (first == 0x69 && second == 0x08) {
-            val value = payload[3].toInt() and 0xff
-            return ParsedRingPacket.Stress(value.takeIf { it > 0 })
+            val health = parseHealthPacket(payload)
+            return ParsedRingPacket.Stress(health.value, health.running)
         }
         return null
     }
+
+    private fun parseHealthPacket(payload: ByteArray): HealthValue {
+        val status = payload[2].toInt() and 0xff
+        val value = payload[3].toInt() and 0xff
+        return HealthValue(
+            value = value.takeIf { it > 0 },
+            running = status == 0x01 && value == 0,
+        )
+    }
+
+    private data class HealthValue(val value: Int?, val running: Boolean)
 }
