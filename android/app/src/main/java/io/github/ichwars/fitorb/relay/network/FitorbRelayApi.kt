@@ -30,6 +30,9 @@ class FitorbRelayApi(
                 }
                 val responseBody = response.body?.string()
                     ?: throw RelayUploadException("empty response")
+                if (responseBody.isEmpty()) {
+                    throw RelayUploadException("empty response")
+                }
                 json.decodeFromString(RelayAckDto.serializer(), responseBody)
             }
         }

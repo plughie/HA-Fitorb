@@ -8,6 +8,7 @@ import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 
 class FitorbRelayApiTest {
     @Test
@@ -29,6 +30,50 @@ class FitorbRelayApiTest {
             assertEquals("Bearer secret-token", request.getHeader("Authorization"))
             assertEquals("/api/fitorb/relay/v1/samples", request.path)
             assertEquals(listOf("sample-heart-1"), ack.accepted)
+        } finally {
+            server.shutdown()
+        }
+    }
+
+    @Test
+    fun uploadThrowsRelayUploadExceptionForEmptySuccessfulBody() = runTest {
+        val server = MockWebServer()
+        server.enqueue(
+            MockResponse()
+                .setResponseCode(204)
+                .setBody("")
+        )
+        server.start()
+        try {
+            val api = FitorbRelayApi(server.url("/").toString())
+
+            val exception = assertFailsWith<RelayUploadException> {
+                api.upload(sampleBatch(), "secret-token")
+            }
+
+            assertEquals("empty response", exception.message)
+        } finally {
+            server.shutdown()
+        }
+    }
+
+    @Test
+    fun uploadThrowsRelayUploadExceptionForHttpError() = runTest {
+        val server = MockWebServer()
+        server.enqueue(
+            MockResponse()
+                .setResponseCode(503)
+                .setBody("""{"error":"temporarily_unavailable"}""")
+        )
+        server.start()
+        try {
+            val api = FitorbRelayApi(server.url("/").toString())
+
+            val exception = assertFailsWith<RelayUploadException> {
+                api.upload(sampleBatch(), "secret-token")
+            }
+
+            assertEquals("HTTP 503", exception.message)
         } finally {
             server.shutdown()
         }
