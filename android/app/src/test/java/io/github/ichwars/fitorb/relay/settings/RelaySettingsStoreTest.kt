@@ -1,0 +1,86 @@
+package io.github.ichwars.fitorb.relay.settings
+
+import android.content.Context
+import androidx.test.core.app.ApplicationProvider
+import org.junit.Before
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
+import kotlin.test.Test
+import kotlin.test.assertEquals
+
+private const val PREFERENCES_NAME = "fitorb_relay_settings"
+
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [28])
+class RelaySettingsStoreTest {
+    private lateinit var context: Context
+
+    @Before
+    fun clearPreferences() {
+        context = ApplicationProvider.getApplicationContext()
+        context.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .clear()
+            .commit()
+    }
+
+    @Test
+    fun loadReturnsDefaults() {
+        val store = RelaySettingsStore(context)
+
+        assertEquals(
+            RelaySettings(
+                homeAssistantUrl = "",
+                relayToken = "",
+                relayId = "",
+                ringId = "",
+                syncIntervalMinutes = DEFAULT_SYNC_INTERVAL_MINUTES,
+            ),
+            store.load(),
+        )
+    }
+
+    @Test
+    fun savePersistsTrimmedSettings() {
+        val store = RelaySettingsStore(context)
+
+        store.save(
+            RelaySettings(
+                homeAssistantUrl = " https://ha.example.net ",
+                relayToken = " fitorb_relay_secret ",
+                relayId = " pixel-8 ",
+                ringId = " AA:BB:CC:DD:EE:FF ",
+                syncIntervalMinutes = 15,
+            )
+        )
+
+        assertEquals(
+            RelaySettings(
+                homeAssistantUrl = "https://ha.example.net",
+                relayToken = "fitorb_relay_secret",
+                relayId = "pixel-8",
+                ringId = "AA:BB:CC:DD:EE:FF",
+                syncIntervalMinutes = 15,
+            ),
+            store.load(),
+        )
+    }
+
+    @Test
+    fun syncIntervalIsClampedWhenSavedAndLoaded() {
+        val store = RelaySettingsStore(context)
+
+        store.save(
+            RelaySettings(
+                homeAssistantUrl = "https://ha.example.net",
+                relayToken = "fitorb_relay_secret",
+                relayId = "pixel-8",
+                ringId = "AA:BB:CC:DD:EE:FF",
+                syncIntervalMinutes = 90,
+            )
+        )
+
+        assertEquals(MAX_SYNC_INTERVAL_MINUTES, store.load().syncIntervalMinutes)
+    }
+}
