@@ -66,6 +66,49 @@ one Android device. Store that token in the relay app. The token is only valid
 for Fitorb relay ingest and can be revoked with `fitorb.revoke_relay_token`.
 Treat it as a bearer secret and send it only over HTTPS.
 
+Manual verification:
+
+```yaml
+service: fitorb.create_relay_token
+data:
+  entry_id: "<real-config-entry-id>"
+  label: "Pixel test"
+```
+
+The service response contains `token_id`, `token`, `entry_id`, and `label`.
+The token begins with `fitorb_relay_`.
+
+```powershell
+Invoke-RestMethod `
+  -Method Post `
+  -Uri "https://YOUR_HA_HOST/api/fitorb/relay/v1/samples" `
+  -Headers @{ Authorization = "Bearer YOUR_RELAY_TOKEN" } `
+  -ContentType "application/json" `
+  -Body '{
+    "relay_id":"manual-test",
+    "ring_id":"AA:BB:CC:DD:EE:FF",
+    "app_version":"0.1.0",
+    "protocol_version":1,
+    "sent_at":"2026-07-03T10:00:00Z",
+    "samples":[
+      {
+        "sample_id":"manual-heart-1",
+        "ring_id":"AA:BB:CC:DD:EE:FF",
+        "metric":"heart_rate",
+        "timestamp":"2026-07-03T09:55:00Z",
+        "value":72,
+        "unit":"bpm",
+        "source":"android_relay",
+        "captured_at":"2026-07-03T09:55:05Z",
+        "protocol_version":1
+      }
+    ]
+  }'
+```
+
+The first upload should return `manual-heart-1` in `accepted`. Running the same
+request again should return `manual-heart-1` in `duplicates`.
+
 Recommended defaults:
 
 - Ring sync interval: 10 minutes.
