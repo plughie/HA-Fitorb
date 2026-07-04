@@ -71,12 +71,14 @@ Manual verification:
 ```yaml
 service: fitorb.create_relay_token
 data:
-  entry_id: "<real-config-entry-id>"
   label: "Pixel test"
 ```
 
-The service response contains `token_id`, `token`, `entry_id`, and `label`.
-The token begins with `fitorb_relay_`.
+When exactly one Fitorb ring is loaded, `entry_id` is optional. If multiple
+Fitorb rings are loaded, pass the desired config entry ID explicitly. The
+service response contains `token_id`, `token`, `entry_id`, `ring_id`, and
+`label`. The token begins with `fitorb_relay_`. Use `token` and `ring_id` in the
+Android relay app.
 
 ```powershell
 Invoke-RestMethod `

@@ -5,6 +5,7 @@ import copy
 import json
 from datetime import UTC, datetime
 from pathlib import Path
+from types import SimpleNamespace
 from unittest import IsolatedAsyncioTestCase
 from unittest.mock import patch
 
@@ -97,6 +98,10 @@ class _FakeHass:
 
         self.data = {DOMAIN: domain_data}
         self.services = _FakeServices()
+
+
+def _fake_coordinator(address: str = "AA:BB:CC:DD:EE:FF") -> SimpleNamespace:
+    return SimpleNamespace(base_data=SimpleNamespace(address=address))
 
 
 class TestRelayAuth(IsolatedAsyncioTestCase):
@@ -236,7 +241,7 @@ class TestRelayAuth(IsolatedAsyncioTestCase):
         token_store = _FakeRelayTokenStore()
         result = await _async_create_relay_token_response(
             token_store,
-            {"entry-id": object()},
+            {"entry-id": _fake_coordinator()},
             "entry-id",
             "Pixel 8",
         )
@@ -245,9 +250,50 @@ class TestRelayAuth(IsolatedAsyncioTestCase):
             "token_id": "token-id",
             "token": "fitorb_relay_test",
             "entry_id": "entry-id",
+            "ring_id": "AA:BB:CC:DD:EE:FF",
             "label": "Pixel 8",
         }
         assert token_store.created == [("entry-id", "Pixel 8")]
+
+    async def test_create_relay_token_response_uses_single_entry_by_default(
+        self,
+    ) -> None:
+        from custom_components.fitorb import _async_create_relay_token_response
+
+        token_store = _FakeRelayTokenStore()
+        result = await _async_create_relay_token_response(
+            token_store,
+            {"entry-id": _fake_coordinator("11:22:33:44:55:66")},
+            None,
+            "Pixel 8",
+        )
+
+        assert result["entry_id"] == "entry-id"
+        assert result["ring_id"] == "11:22:33:44:55:66"
+        assert result["token"] == "fitorb_relay_test"
+        assert token_store.created == [("entry-id", "Pixel 8")]
+
+    async def test_create_relay_token_response_requires_entry_id_for_multiple_entries(
+        self,
+    ) -> None:
+        from homeassistant.exceptions import HomeAssistantError
+
+        from custom_components.fitorb import _async_create_relay_token_response
+
+        token_store = _FakeRelayTokenStore()
+
+        with self.assertRaisesRegex(HomeAssistantError, "Multiple Fitorb"):
+            await _async_create_relay_token_response(
+                token_store,
+                {
+                    "first-entry": _fake_coordinator("AA:BB:CC:DD:EE:FF"),
+                    "second-entry": _fake_coordinator("11:22:33:44:55:66"),
+                },
+                None,
+                "Pixel 8",
+            )
+
+        assert token_store.created == []
 
     async def test_services_yaml_exposes_relay_service_fields(self) -> None:
         services_path = (
@@ -260,7 +306,7 @@ class TestRelayAuth(IsolatedAsyncioTestCase):
         services = yaml.safe_load(services_path.read_text(encoding="utf-8"))
 
         create_fields = services["create_relay_token"]["fields"]
-        assert create_fields["entry_id"]["required"] is True
+        assert create_fields["entry_id"]["required"] is False
         assert create_fields["entry_id"]["selector"] == {"text": {}}
         assert create_fields["label"]["required"] is True
         assert create_fields["label"]["selector"] == {"text": {}}

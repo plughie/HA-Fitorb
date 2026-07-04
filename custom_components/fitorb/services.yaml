@@ -1,7 +1,7 @@
 create_relay_token:
   fields:
     entry_id:
-      required: true
+      required: false
       selector:
         text: {}
     label:

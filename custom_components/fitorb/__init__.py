@@ -33,7 +33,7 @@ _RESERVED_DOMAIN_DATA_KEYS = {
 _REQUIRED_STRING = vol.All(str, vol.Length(min=1))
 _CREATE_RELAY_TOKEN_SCHEMA = vol.Schema(
     {
-        vol.Required("entry_id"): _REQUIRED_STRING,
+        vol.Optional("entry_id"): _REQUIRED_STRING,
         vol.Required("label"): _REQUIRED_STRING,
     }
 )
@@ -96,7 +96,7 @@ async def _async_setup_relay_services(hass: HomeAssistant) -> None:
         return await _async_create_relay_token_response(
             token_store,
             domain_data,
-            call.data["entry_id"],
+            call.data.get("entry_id"),
             call.data["label"],
         )
 
@@ -144,20 +144,53 @@ async def _async_get_relay_token_store(
 async def _async_create_relay_token_response(
     token_store: FitorbRelayTokenStore,
     domain_data: dict[str, object],
-    entry_id: str,
+    entry_id: str | None,
     label: str,
 ) -> dict[str, str]:
     """Create a relay token service response for a loaded config entry."""
-    if entry_id in _RESERVED_DOMAIN_DATA_KEYS or entry_id not in domain_data:
-        raise HomeAssistantError(f"Unknown Fitorb config entry ID: {entry_id}")
+    resolved_entry_id, ring_id = _resolve_relay_token_entry(domain_data, entry_id)
 
-    created = await token_store.async_create_token(entry_id, label)
+    created = await token_store.async_create_token(resolved_entry_id, label)
     return {
         "token_id": created.record.token_id,
         "token": created.token,
         "entry_id": created.record.entry_id,
+        "ring_id": ring_id,
         "label": created.record.label,
     }
+
+
+def _resolve_relay_token_entry(
+    domain_data: dict[str, object],
+    entry_id: str | None,
+) -> tuple[str, str]:
+    """Return the config entry ID and ring ID for relay token creation."""
+    if entry_id is not None:
+        if entry_id in _RESERVED_DOMAIN_DATA_KEYS or entry_id not in domain_data:
+            raise HomeAssistantError(f"Unknown Fitorb config entry ID: {entry_id}")
+        return entry_id, _ring_id_from_relay_entry(entry_id, domain_data[entry_id])
+
+    entries = [
+        (candidate_entry_id, coordinator)
+        for candidate_entry_id, coordinator in domain_data.items()
+        if candidate_entry_id not in _RESERVED_DOMAIN_DATA_KEYS
+    ]
+    if not entries:
+        raise HomeAssistantError("No loaded Fitorb config entries")
+    if len(entries) > 1:
+        raise HomeAssistantError("Multiple Fitorb config entries loaded; pass entry_id")
+
+    resolved_entry_id, coordinator = entries[0]
+    return resolved_entry_id, _ring_id_from_relay_entry(resolved_entry_id, coordinator)
+
+
+def _ring_id_from_relay_entry(entry_id: str, coordinator: object) -> str:
+    """Return the Bluetooth address used as relay ring ID."""
+    base_data = getattr(coordinator, "base_data", None)
+    address = getattr(base_data, "address", None)
+    if isinstance(address, str) and address:
+        return address
+    raise HomeAssistantError(f"Fitorb config entry has no ring address: {entry_id}")
 
 
 def _async_remove_relay_services_if_unused(hass: HomeAssistant) -> None:

@@ -74,7 +74,7 @@
       "fields": {
         "entry_id": {
           "name": "Konfigurationseintrags-ID",
-          "description": "Der Fitorb-Konfigurationseintrag, für den der Relay Token hochladen darf."
+          "description": "Optional, wenn genau ein Fitorb-Konfigurationseintrag geladen ist. Der Fitorb-Konfigurationseintrag, für den der Relay Token hochladen darf."
         },
         "label": {
           "name": "Bezeichnung",

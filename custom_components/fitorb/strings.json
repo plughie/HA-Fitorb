@@ -74,7 +74,7 @@
       "fields": {
         "entry_id": {
           "name": "Config entry ID",
-          "description": "The Fitorb config entry the relay token can upload for."
+          "description": "Optional when exactly one Fitorb config entry is loaded. The Fitorb config entry the relay token can upload for."
         },
         "label": {
           "name": "Label",
