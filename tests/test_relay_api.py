@@ -10,6 +10,7 @@ from unittest.mock import Mock, patch
 from aiohttp import web
 from homeassistant.components.http import KEY_HASS
 from homeassistant.const import CONF_ADDRESS, CONF_NAME
+from homeassistant.exceptions import HomeAssistantError
 
 import custom_components.fitorb as fitorb_init
 from custom_components.fitorb.const import DOMAIN
@@ -316,6 +317,26 @@ class TestFitorbRelaySamplesView(IsolatedAsyncioTestCase):
         assert len(hass.http.views) == 1
         assert isinstance(hass.http.views[0], FitorbRelaySamplesView)
         assert hass.data[DOMAIN][fitorb_init.DATA_RELAY_VIEW_REGISTERED] is True
+
+    async def test_relay_setup_requires_http_server(self) -> None:
+        class FakeRelayTokenStore:
+            def __init__(self, hass: object) -> None:
+                pass
+
+            async def async_load(self) -> None:
+                pass
+
+        class FakeServices:
+            def has_service(self, domain: str, service: str) -> bool:
+                return False
+
+        hass = SimpleNamespace(data={}, http=None, services=FakeServices())
+
+        with (
+            patch.object(fitorb_init, "FitorbRelayTokenStore", FakeRelayTokenStore),
+            self.assertRaises(HomeAssistantError),
+        ):
+            await fitorb_init._async_setup_relay_services(hass)
 
     async def test_relay_token_store_singleton_under_concurrent_setup(self) -> None:
         class FakeRelayTokenStore:

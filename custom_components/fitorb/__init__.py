@@ -179,8 +179,7 @@ def _register_relay_view_once(
         return
 
     if hass.http is None:
-        _LOGGER.debug("HTTP server unavailable; relay ingest view not registered")
-        return
+        raise HomeAssistantError("HTTP server unavailable for Fitorb relay ingest")
 
     hass.http.register_view(FitorbRelaySamplesView())
     domain_data[DATA_RELAY_VIEW_REGISTERED] = True

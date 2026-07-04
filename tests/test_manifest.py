@@ -5,7 +5,6 @@ from pathlib import Path
 
 from custom_components.fitorb.const import VERSION
 
-
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -19,6 +18,7 @@ def test_manifest_declares_bluetooth_dependency() -> None:
     assert manifest["config_flow"] is True
     assert manifest["iot_class"] == "local_polling"
     assert "bluetooth" in manifest["dependencies"]
+    assert "http" in manifest["dependencies"]
     assert manifest["bluetooth"][0]["connectable"] is True
 
 
