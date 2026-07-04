@@ -6,7 +6,16 @@ from datetime import UTC, datetime, timedelta, timezone
 from unittest import IsolatedAsyncioTestCase
 from unittest.mock import patch
 
-from custom_components.fitorb.relay import RelayBatch, RelayMetric, RelaySample
+from custom_components.fitorb.relay import (
+    MAX_RELAY_VALUE_STRING_LENGTH,
+    RelayBatch,
+    RelayMetric,
+    RelaySample,
+)
+
+_MAX_STORED_SAMPLES_PATH = (
+    "custom_components.fitorb.history_store.MAX_RELAY_STORED_SAMPLES"
+)
 
 
 class _FakeStore:
@@ -169,8 +178,8 @@ class TestRelayHistoryStore(IsolatedAsyncioTestCase):
 
     async def test_record_relay_batch_prunes_oldest_relay_samples(self) -> None:
         from custom_components.fitorb.history_store import (
-            FitorbHistoryStore,
             MAX_RELAY_STORED_SAMPLES,
+            FitorbHistoryStore,
         )
 
         assert MAX_RELAY_STORED_SAMPLES == 10000
@@ -196,7 +205,7 @@ class TestRelayHistoryStore(IsolatedAsyncioTestCase):
             }
         }
 
-        with patch("custom_components.fitorb.history_store.MAX_RELAY_STORED_SAMPLES", 3):
+        with patch(_MAX_STORED_SAMPLES_PATH, 3):
             store = FitorbHistoryStore(object(), "entry-id")
             await store.async_load()
             await store.async_record_relay_batch(
@@ -230,7 +239,7 @@ class TestRelayHistoryStore(IsolatedAsyncioTestCase):
         }
         assert persisted["relay"]["last_sample"] == "2026-07-03T09:58:00+00:00"
 
-    async def test_record_relay_batch_prunes_malformed_future_sample_before_valid_sample(
+    async def test_record_relay_batch_prunes_future_malformed_before_valid(
         self,
     ) -> None:
         from custom_components.fitorb.history_store import FitorbHistoryStore
@@ -256,7 +265,55 @@ class TestRelayHistoryStore(IsolatedAsyncioTestCase):
             }
         }
 
-        with patch("custom_components.fitorb.history_store.MAX_RELAY_STORED_SAMPLES", 2):
+        with patch(_MAX_STORED_SAMPLES_PATH, 2):
+            store = FitorbHistoryStore(object(), "entry-id")
+            await store.async_load()
+            await store.async_record_relay_batch(
+                _batch(
+                    _sample(
+                        "older-valid",
+                        timestamp=datetime(2026, 7, 3, 9, 55, tzinfo=UTC),
+                    ),
+                    _sample(
+                        "newer-valid",
+                        timestamp=datetime(2026, 7, 4, 9, 55, tzinfo=UTC),
+                    ),
+                ),
+                datetime(2026, 7, 4, 10, 1, tzinfo=UTC),
+            )
+
+        persisted = _FakeStore._saved["fitorb_history_entry-id"]
+        relay_samples = persisted["relay"]["samples"]
+        assert set(relay_samples) == {"older-valid", "newer-valid"}
+        assert persisted["relay"]["last_sample"] == "2026-07-04T09:55:00+00:00"
+
+    async def test_record_relay_batch_prunes_oversized_future_string_value_first(
+        self,
+    ) -> None:
+        from custom_components.fitorb.history_store import FitorbHistoryStore
+
+        _FakeStore._saved["fitorb_history_entry-id"] = {
+            "relay": {
+                "last_upload": "2026-07-03T10:00:00+00:00",
+                "last_sample": None,
+                "last_rejected_count": 0,
+                "app_version": "0.1.0",
+                "samples": {
+                    "oversized-future": {
+                        "sample_id": "oversized-future",
+                        "ring_id": "AA:BB:CC:DD:EE:FF",
+                        "metric": "heart_rate",
+                        "timestamp": "2026-07-05T09:55:00+00:00",
+                        "value": "v" * (MAX_RELAY_VALUE_STRING_LENGTH + 1),
+                        "source": "android_relay",
+                        "captured_at": "2026-07-05T09:55:05+00:00",
+                        "protocol_version": 1,
+                    }
+                },
+            }
+        }
+
+        with patch(_MAX_STORED_SAMPLES_PATH, 2):
             store = FitorbHistoryStore(object(), "entry-id")
             await store.async_load()
             await store.async_record_relay_batch(

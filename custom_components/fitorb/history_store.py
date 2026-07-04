@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from datetime import UTC, datetime
 from typing import Any
 
@@ -9,6 +10,7 @@ from homeassistant.helpers.storage import Store
 from .const import DOMAIN
 from .models import FitorbHistoryResult, FitorbHistorySample, FitorbSleepSummary
 from .relay import (
+    MAX_RELAY_VALUE_STRING_LENGTH,
     RelayAckResult,
     RelayBatch,
     RelayMetric,
@@ -351,6 +353,13 @@ def _is_valid_relay_sample_json(value: object) -> bool:
     if _parse_datetime(value.get("timestamp")) is None:
         return False
     if not isinstance(sample_value, int | float | str | bool):
+        return False
+    if isinstance(sample_value, float) and not math.isfinite(sample_value):
+        return False
+    if (
+        isinstance(sample_value, str)
+        and len(sample_value) > MAX_RELAY_VALUE_STRING_LENGTH
+    ):
         return False
     if not isinstance(source, str) or not source:
         return False
