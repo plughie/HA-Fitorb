@@ -6,7 +6,7 @@ from homeassistant.const import Platform
 
 DOMAIN = "fitorb"
 DEFAULT_NAME = "Fitorb Smart Ring"
-VERSION = "0.3.0"
+VERSION = "0.3.1"
 
 PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.BINARY_SENSOR]
 

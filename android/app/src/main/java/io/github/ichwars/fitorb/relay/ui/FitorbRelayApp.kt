@@ -1,9 +1,12 @@
 package io.github.ichwars.fitorb.relay.ui
 
+import androidx.annotation.StringRes
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,9 +17,11 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -25,7 +30,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -35,8 +39,10 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -49,17 +55,32 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import io.github.ichwars.fitorb.relay.data.RelayAckDto
+import io.github.ichwars.fitorb.relay.R
+import io.github.ichwars.fitorb.relay.data.RelaySampleDto
+import io.github.ichwars.fitorb.relay.data.RelaySampleValue
+import io.github.ichwars.fitorb.relay.settings.MAX_STEP_GOAL_STEPS
 import io.github.ichwars.fitorb.relay.network.RelayUploadException
 import io.github.ichwars.fitorb.relay.settings.MAX_SYNC_INTERVAL_MINUTES
+import io.github.ichwars.fitorb.relay.settings.MIN_STEP_GOAL_STEPS
 import io.github.ichwars.fitorb.relay.settings.MIN_SYNC_INTERVAL_MINUTES
 import io.github.ichwars.fitorb.relay.settings.RelaySettings
+import io.github.ichwars.fitorb.relay.settings.STEP_GOAL_INCREMENT_STEPS
+import io.github.ichwars.fitorb.relay.sync.RelaySyncResult
+import java.text.NumberFormat
+import java.time.Duration
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.util.Locale
+import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
 
 private val AppBlack = Color(0xFF040707)
@@ -75,6 +96,10 @@ private val AppGreenDark = Color(0xFF0A5A0D)
 private val AppTeal = Color(0xFF053C37)
 private val AppSilver = Color(0xFFD8D9D4)
 private val AppWarning = Color(0xFFFFCC66)
+private val SleepDeepColor = Color(0xFF25D4BE)
+private val SleepLightColor = Color(0xFF17A8D8)
+private val SleepRemColor = Color(0xFF3AF24C)
+private val SleepAwakeColor = Color(0xFFFFA629)
 
 private val FitorbColorScheme = darkColorScheme(
     primary = AppGreen,
@@ -91,21 +116,23 @@ private val FitorbColorScheme = darkColorScheme(
 
 private enum class RelayTab(
     val key: String,
-    val label: String,
+    @StringRes val labelRes: Int,
     val mark: String,
 ) {
-    Home("home", "Home", "H"),
-    Activity("activity", "Aktiv", "A"),
-    Sleep("sleep", "Schlaf", "S"),
-    More("more", "Mehr", "M"),
+    Home("home", R.string.tab_home, "H"),
+    Activity("activity", R.string.tab_activity, "A"),
+    Sleep("sleep", R.string.tab_sleep, "S"),
+    More("more", R.string.tab_more, "M"),
 }
 
 @Composable
 fun FitorbRelayApp(
     initialSettings: RelaySettings,
     defaultRelayId: String,
+    appVersion: String,
     onSave: (RelaySettings) -> Unit,
-    onUpload: suspend (RelaySettings) -> RelayAckDto,
+    onUpload: suspend (RelaySettings) -> RelaySyncResult,
+    onLoadSamples: suspend (RelaySettings) -> List<RelaySampleDto>,
 ) {
     var homeAssistantUrl by rememberSaveable {
         mutableStateOf(initialSettings.homeAssistantUrl)
@@ -113,6 +140,7 @@ fun FitorbRelayApp(
     var relayToken by rememberSaveable { mutableStateOf(initialSettings.relayToken) }
     var relayId by rememberSaveable { mutableStateOf(initialSettings.relayId) }
     var ringId by rememberSaveable { mutableStateOf(initialSettings.ringId) }
+    var ringName by rememberSaveable { mutableStateOf(initialSettings.ringName) }
     var syncInterval by rememberSaveable {
         mutableStateOf(
             initialSettings.syncIntervalMinutes.coerceIn(
@@ -121,14 +149,27 @@ fun FitorbRelayApp(
             ),
         )
     }
+    var stepGoal by rememberSaveable {
+        mutableStateOf(
+            initialSettings.stepGoal.coerceIn(
+                MIN_STEP_GOAL_STEPS,
+                MAX_STEP_GOAL_STEPS,
+            ),
+        )
+    }
     var setupStep by rememberSaveable {
         mutableStateOf(if (initialSettings.isReadyForUpload()) 2 else 0)
     }
     var activeTab by rememberSaveable { mutableStateOf(RelayTab.Home.key) }
-    var uploadStatus by rememberSaveable { mutableStateOf("Bereit") }
-    var lastSync by rememberSaveable { mutableStateOf("Noch kein Upload") }
+    var uploadState by rememberSaveable { mutableStateOf("ready") }
+    var uploadError by rememberSaveable { mutableStateOf("") }
+    var acceptedCount by rememberSaveable { mutableStateOf<Int?>(null) }
+    var duplicateCount by rememberSaveable { mutableStateOf<Int?>(null) }
+    var rejectedCount by rememberSaveable { mutableStateOf<Int?>(null) }
+    var hasUploaded by rememberSaveable { mutableStateOf(false) }
     var mobileRelayActive by rememberSaveable { mutableStateOf(false) }
     var uploading by rememberSaveable { mutableStateOf(false) }
+    var latestRingSamples by remember { mutableStateOf<List<RelaySampleDto>>(emptyList()) }
     val scope = rememberCoroutineScope()
 
     fun currentSettings() = RelaySettings(
@@ -137,6 +178,8 @@ fun FitorbRelayApp(
         relayId = relayId.ifBlank { defaultRelayId },
         ringId = ringId,
         syncIntervalMinutes = syncInterval,
+        ringName = ringName,
+        stepGoal = stepGoal,
     )
 
     fun saveCurrentSettings() = onSave(currentSettings())
@@ -145,19 +188,27 @@ fun FitorbRelayApp(
         val settings = currentSettings()
         saveCurrentSettings()
         uploading = true
-        uploadStatus = "Sende Test..."
+        uploadState = "sending"
+        uploadError = ""
         scope.launch {
-            uploadStatus = try {
-                val ack = onUpload(settings)
-                mobileRelayActive = true
-                lastSync = "Gerade eben"
-                "OK: ${ack.accepted.size} neu, " +
-                    "${ack.duplicates.size} doppelt, " +
-                    "${ack.rejected.size} abgewiesen"
+            try {
+                val result = onUpload(settings)
+                val ack = result.ack
+                latestRingSamples = result.capturedSamples.ifEmpty { result.uploadedSamples }
+                acceptedCount = ack.accepted.size
+                duplicateCount = ack.duplicates.size
+                rejectedCount = ack.rejected.size
+                mobileRelayActive = result.capturedSamples.isNotEmpty()
+                hasUploaded = true
+                uploadState = "ok"
             } catch (exception: RelayUploadException) {
-                "Fehler: ${exception.message.orEmpty()}"
+                uploadError = exception.message.orEmpty()
+                mobileRelayActive = false
+                uploadState = "error"
             } catch (exception: IllegalArgumentException) {
-                "Fehler: ${exception.message.orEmpty()}"
+                uploadError = exception.message.orEmpty()
+                mobileRelayActive = false
+                uploadState = "error"
             } finally {
                 uploading = false
             }
@@ -165,19 +216,55 @@ fun FitorbRelayApp(
     }
 
     val settings = currentSettings()
+    val ringSampleKey = settings.ringId.trim()
+    LaunchedEffect(setupStep, ringSampleKey) {
+        if (setupStep >= 2 && ringSampleKey.isNotBlank()) {
+            latestRingSamples = runCatching {
+                onLoadSamples(settings.copy(ringId = ringSampleKey))
+            }.getOrDefault(emptyList())
+            if (latestRingSamples.isNotEmpty()) {
+                mobileRelayActive = true
+            }
+        }
+    }
     val canUpload = settings.isReadyForUpload() && !uploading
+    val unknownError = stringResource(R.string.unknown_error)
+    val uploadStatus = when (uploadState) {
+        "sending" -> stringResource(R.string.status_sending)
+        "ok" -> stringResource(
+            R.string.status_ok,
+            acceptedCount ?: 0,
+            duplicateCount ?: 0,
+            rejectedCount ?: 0,
+        )
+        "error" -> stringResource(
+            R.string.status_error,
+            uploadError.ifBlank { unknownError },
+        )
+        else -> stringResource(R.string.status_ready)
+    }
+    val uploadOk = uploadState == "ok"
+    val lastSync = if (hasUploaded) {
+        stringResource(R.string.last_sync_now)
+    } else {
+        stringResource(R.string.last_sync_none)
+    }
+    val dashboardSnapshot = RingDashboardSnapshot.from(latestRingSamples)
 
     MaterialTheme(colorScheme = FitorbColorScheme) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(AppBackgroundBrush()),
+                .background(AppBackgroundBrush())
+                .statusBarsPadding(),
         ) {
             if (setupStep < 2) {
                 SetupFlow(
                     step = setupStep,
                     ringId = ringId,
                     onRingIdChange = { ringId = it },
+                    ringName = ringName,
+                    onRingNameChange = { ringName = it },
                     homeAssistantUrl = homeAssistantUrl,
                     onHomeAssistantUrlChange = { homeAssistantUrl = it },
                     relayToken = relayToken,
@@ -187,6 +274,7 @@ fun FitorbRelayApp(
                     syncInterval = syncInterval,
                     onSyncIntervalChange = { syncInterval = it },
                     uploadStatus = uploadStatus,
+                    uploadOk = uploadOk,
                     uploading = uploading,
                     canUpload = canUpload,
                     onBack = { setupStep = 0 },
@@ -205,9 +293,16 @@ fun FitorbRelayApp(
                     activeTab = activeTab,
                     onTabSelected = { activeTab = it.key },
                     settings = settings,
+                    appVersion = appVersion,
                     mobileRelayActive = mobileRelayActive,
                     lastSync = lastSync,
                     uploadStatus = uploadStatus,
+                    uploadOk = uploadOk,
+                    acceptedCount = acceptedCount,
+                    duplicateCount = duplicateCount,
+                    rejectedCount = rejectedCount,
+                    dashboardSnapshot = dashboardSnapshot,
+                    latestRingSamples = latestRingSamples,
                     uploading = uploading,
                     canUpload = canUpload,
                     onUpload = ::uploadCurrentSettings,
@@ -221,7 +316,9 @@ fun FitorbRelayApp(
                     onRelayTokenChange = { relayToken = it },
                     onRelayIdChange = { relayId = it },
                     onRingIdChange = { ringId = it },
+                    onRingNameChange = { ringName = it },
                     onSyncIntervalChange = { syncInterval = it },
+                    onStepGoalChange = { stepGoal = it },
                     onSave = ::saveCurrentSettings,
                 )
             }
@@ -234,6 +331,8 @@ private fun SetupFlow(
     step: Int,
     ringId: String,
     onRingIdChange: (String) -> Unit,
+    ringName: String,
+    onRingNameChange: (String) -> Unit,
     homeAssistantUrl: String,
     onHomeAssistantUrlChange: (String) -> Unit,
     relayToken: String,
@@ -243,6 +342,7 @@ private fun SetupFlow(
     syncInterval: Int,
     onSyncIntervalChange: (Int) -> Unit,
     uploadStatus: String,
+    uploadOk: Boolean,
     uploading: Boolean,
     canUpload: Boolean,
     onBack: () -> Unit,
@@ -259,6 +359,8 @@ private fun SetupFlow(
             RingSearchStep(
                 ringId = ringId,
                 onRingIdChange = onRingIdChange,
+                ringName = ringName,
+                onRingNameChange = onRingNameChange,
                 onContinue = onContinueFromRing,
             )
         } else {
@@ -271,9 +373,12 @@ private fun SetupFlow(
                 onRelayIdChange = onRelayIdChange,
                 ringId = ringId,
                 onRingIdChange = onRingIdChange,
+                ringName = ringName,
+                onRingNameChange = onRingNameChange,
                 syncInterval = syncInterval,
                 onSyncIntervalChange = onSyncIntervalChange,
                 uploadStatus = uploadStatus,
+                uploadOk = uploadOk,
                 uploading = uploading,
                 canUpload = canUpload,
                 onBack = onBack,
@@ -285,6 +390,7 @@ private fun SetupFlow(
             step = step,
             modifier = Modifier
                 .align(Alignment.BottomCenter)
+                .navigationBarsPadding()
                 .padding(bottom = 10.dp),
         )
     }
@@ -294,6 +400,8 @@ private fun SetupFlow(
 private fun RingSearchStep(
     ringId: String,
     onRingIdChange: (String) -> Unit,
+    ringName: String,
+    onRingNameChange: (String) -> Unit,
     onContinue: () -> Unit,
 ) {
     Column(
@@ -302,16 +410,16 @@ private fun RingSearchStep(
             .verticalScroll(rememberScrollState()),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        TopStatusRow(label = "Bluetooth")
+        TopStatusRow(label = stringResource(R.string.setup_bluetooth))
         Spacer(modifier = Modifier.height(30.dp))
         Text(
-            text = "Searching for your ring",
+            text = stringResource(R.string.setup_search_title),
             style = MaterialTheme.typography.headlineLarge,
             color = AppText,
             textAlign = TextAlign.Center,
         )
         Text(
-            text = "Make sure the ring is charged",
+            text = stringResource(R.string.setup_search_subtitle),
             style = MaterialTheme.typography.bodyMedium,
             color = AppMuted,
             modifier = Modifier.padding(top = 8.dp),
@@ -324,15 +432,27 @@ private fun RingSearchStep(
         )
         Spacer(modifier = Modifier.height(16.dp))
         RelayTextField(
+            value = ringName,
+            onValueChange = onRingNameChange,
+            label = stringResource(R.string.ring_name_label),
+            placeholder = stringResource(R.string.ring_name_placeholder),
+            keyboardType = KeyboardType.Text,
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+        RelayTextField(
             value = ringId,
             onValueChange = onRingIdChange,
-            label = "Ring ID",
-            placeholder = "AA:BB:CC:DD:EE:FF",
+            label = stringResource(R.string.ring_id_label),
+            placeholder = stringResource(R.string.ring_id_placeholder),
             keyboardType = KeyboardType.Text,
         )
         Spacer(modifier = Modifier.height(18.dp))
         PrimaryRelayButton(
-            text = if (ringId.isBlank()) "Weiter" else "Ring übernehmen",
+            text = if (ringId.isBlank()) {
+                stringResource(R.string.button_next)
+            } else {
+                stringResource(R.string.button_use_ring)
+            },
             enabled = ringId.isNotBlank(),
             onClick = onContinue,
             modifier = Modifier.fillMaxWidth(),
@@ -350,9 +470,12 @@ private fun HomeAssistantSetupStep(
     onRelayIdChange: (String) -> Unit,
     ringId: String,
     onRingIdChange: (String) -> Unit,
+    ringName: String,
+    onRingNameChange: (String) -> Unit,
     syncInterval: Int,
     onSyncIntervalChange: (Int) -> Unit,
     uploadStatus: String,
+    uploadOk: Boolean,
     uploading: Boolean,
     canUpload: Boolean,
     onBack: () -> Unit,
@@ -367,13 +490,13 @@ private fun HomeAssistantSetupStep(
     ) {
         TopStatusRow(label = "Home Assistant")
         Text(
-            text = "Relay verbinden",
+            text = stringResource(R.string.setup_ha_title),
             style = MaterialTheme.typography.headlineLarge,
             color = AppText,
             modifier = Modifier.padding(top = 12.dp),
         )
         Text(
-            text = "HTTPS Upload, Token und Ring-ID",
+            text = stringResource(R.string.setup_ha_subtitle),
             style = MaterialTheme.typography.bodyMedium,
             color = AppMuted,
         )
@@ -381,14 +504,14 @@ private fun HomeAssistantSetupStep(
             RelayTextField(
                 value = homeAssistantUrl,
                 onValueChange = onHomeAssistantUrlChange,
-                label = "HA-Link",
+                label = stringResource(R.string.ha_link_label),
                 placeholder = "https://ha.example.net",
                 keyboardType = KeyboardType.Uri,
             )
             RelayTextField(
                 value = relayToken,
                 onValueChange = onRelayTokenChange,
-                label = "Relay-Token",
+                label = stringResource(R.string.relay_token_label),
                 placeholder = "fitorb_relay_...",
                 keyboardType = KeyboardType.Password,
                 password = true,
@@ -396,15 +519,22 @@ private fun HomeAssistantSetupStep(
             RelayTextField(
                 value = relayId,
                 onValueChange = onRelayIdChange,
-                label = "Relay-ID",
+                label = stringResource(R.string.relay_id_label),
                 placeholder = "android-pixel",
+                keyboardType = KeyboardType.Text,
+            )
+            RelayTextField(
+                value = ringName,
+                onValueChange = onRingNameChange,
+                label = stringResource(R.string.ring_name_label),
+                placeholder = stringResource(R.string.ring_name_placeholder),
                 keyboardType = KeyboardType.Text,
             )
             RelayTextField(
                 value = ringId,
                 onValueChange = onRingIdChange,
-                label = "Ring ID",
-                placeholder = "AA:BB:CC:DD:EE:FF",
+                label = stringResource(R.string.ring_id_label),
+                placeholder = stringResource(R.string.ring_id_placeholder),
                 keyboardType = KeyboardType.Text,
             )
             IntervalSlider(
@@ -414,26 +544,30 @@ private fun HomeAssistantSetupStep(
         }
         StatusPill(
             label = uploadStatus,
-            active = uploadStatus.startsWith("OK"),
+            active = uploadOk,
         )
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             SecondaryRelayButton(
-                text = "Zurück",
+                text = stringResource(R.string.button_back),
                 onClick = onBack,
                 modifier = Modifier.weight(1f),
             )
             PrimaryRelayButton(
-                text = if (uploading) "Sende..." else "Test senden",
+                text = if (uploading) {
+                    stringResource(R.string.button_sending)
+                } else {
+                    stringResource(R.string.button_test_send)
+                },
                 enabled = canUpload,
                 onClick = onUpload,
                 modifier = Modifier.weight(1f),
             )
         }
         PrimaryRelayButton(
-            text = "Dashboard öffnen",
+            text = stringResource(R.string.button_open_dashboard),
             enabled = canUpload,
             onClick = onSave,
             modifier = Modifier.fillMaxWidth(),
@@ -447,9 +581,16 @@ private fun RelayDashboard(
     activeTab: String,
     onTabSelected: (RelayTab) -> Unit,
     settings: RelaySettings,
+    appVersion: String,
     mobileRelayActive: Boolean,
     lastSync: String,
     uploadStatus: String,
+    uploadOk: Boolean,
+    acceptedCount: Int?,
+    duplicateCount: Int?,
+    rejectedCount: Int?,
+    dashboardSnapshot: RingDashboardSnapshot,
+    latestRingSamples: List<RelaySampleDto>,
     uploading: Boolean,
     canUpload: Boolean,
     onUpload: () -> Unit,
@@ -459,51 +600,66 @@ private fun RelayDashboard(
     onRelayTokenChange: (String) -> Unit,
     onRelayIdChange: (String) -> Unit,
     onRingIdChange: (String) -> Unit,
+    onRingNameChange: (String) -> Unit,
     onSyncIntervalChange: (Int) -> Unit,
+    onStepGoalChange: (Int) -> Unit,
     onSave: () -> Unit,
 ) {
-    Box(modifier = Modifier.fillMaxSize()) {
-        Column(
+    Column(modifier = Modifier.fillMaxSize()) {
+        Box(
             modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(start = 22.dp, top = 28.dp, end = 22.dp, bottom = 112.dp),
+                .fillMaxWidth()
+                .weight(1f),
         ) {
-            when (activeTab) {
-                RelayTab.Activity.key -> ActivityScreen()
-                RelayTab.Sleep.key -> SleepScreen()
-                RelayTab.More.key -> MoreScreen(
-                    settings = settings,
-                    uploadStatus = uploadStatus,
-                    uploading = uploading,
-                    canUpload = canUpload,
-                    onUpload = onUpload,
-                    onOpenSetupFlow = onOpenSetupFlow,
-                    onHomeAssistantUrlChange = onHomeAssistantUrlChange,
-                    onRelayTokenChange = onRelayTokenChange,
-                    onRelayIdChange = onRelayIdChange,
-                    onRingIdChange = onRingIdChange,
-                    onSyncIntervalChange = onSyncIntervalChange,
-                    onSave = onSave,
-                )
-                else -> HomeScreen(
-                    settings = settings,
-                    mobileRelayActive = mobileRelayActive,
-                    lastSync = lastSync,
-                    uploadStatus = uploadStatus,
-                    uploading = uploading,
-                    canUpload = canUpload,
-                    onUpload = onUpload,
-                    onEditSetup = onEditSetup,
-                )
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(start = 22.dp, top = 28.dp, end = 22.dp, bottom = 24.dp),
+            ) {
+                when (activeTab) {
+                    RelayTab.Activity.key -> ActivityScreen(
+                        snapshot = dashboardSnapshot,
+                        samples = latestRingSamples,
+                        mobileRelayActive = mobileRelayActive,
+                        stepGoal = settings.stepGoal,
+                    )
+                    RelayTab.Sleep.key -> SleepScreen(
+                        snapshot = dashboardSnapshot,
+                        samples = latestRingSamples,
+                        mobileRelayActive = mobileRelayActive,
+                    )
+                    RelayTab.More.key -> MoreScreen(
+                        settings = settings,
+                        uploadStatus = uploadStatus,
+                        uploadOk = uploadOk,
+                        uploading = uploading,
+                        canUpload = canUpload,
+                        onUpload = onUpload,
+                        onOpenSetupFlow = onOpenSetupFlow,
+                        onHomeAssistantUrlChange = onHomeAssistantUrlChange,
+                        onRelayTokenChange = onRelayTokenChange,
+                        onRelayIdChange = onRelayIdChange,
+                        onRingIdChange = onRingIdChange,
+                        onRingNameChange = onRingNameChange,
+                        onSyncIntervalChange = onSyncIntervalChange,
+                        onStepGoalChange = onStepGoalChange,
+                        onSave = onSave,
+                    )
+                    else -> HomeScreen(
+                        settings = settings,
+                        mobileRelayActive = mobileRelayActive,
+                        dashboardSnapshot = dashboardSnapshot,
+                    )
+                }
             }
         }
         FloatingBottomBar(
             activeTab = activeTab,
             onTabSelected = onTabSelected,
             modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .padding(horizontal = 22.dp, vertical = 18.dp),
+                .navigationBarsPadding()
+                .padding(start = 18.dp, top = 8.dp, end = 18.dp, bottom = 22.dp),
         )
     }
 }
@@ -512,36 +668,18 @@ private fun RelayDashboard(
 private fun HomeScreen(
     settings: RelaySettings,
     mobileRelayActive: Boolean,
-    lastSync: String,
-    uploadStatus: String,
-    uploading: Boolean,
-    canUpload: Boolean,
-    onUpload: () -> Unit,
-    onEditSetup: () -> Unit,
+    dashboardSnapshot: RingDashboardSnapshot,
 ) {
     HeaderBlock(
-        title = "Fitorb Ring",
-        subtitle = compactRingId(settings.ringId),
+        title = stringResource(R.string.app_name),
+        subtitle = ringDisplayName(settings),
+        batteryPercent = dashboardSnapshot.batteryPercent,
         mobileRelayActive = mobileRelayActive,
     )
     Spacer(modifier = Modifier.height(22.dp))
     RingDashboardCard(
-        mobileRelayActive = mobileRelayActive,
-        lastSync = lastSync,
-    )
-    Spacer(modifier = Modifier.height(18.dp))
-    RelayConnectionCard(
-        settings = settings,
-        mobileRelayActive = mobileRelayActive,
-        uploadStatus = uploadStatus,
-        onEditSetup = onEditSetup,
-    )
-    Spacer(modifier = Modifier.height(18.dp))
-    PrimaryRelayButton(
-        text = if (uploading) "Sende..." else "Test senden",
-        enabled = canUpload,
-        onClick = onUpload,
-        modifier = Modifier.fillMaxWidth(),
+        snapshot = dashboardSnapshot,
+        stepGoal = settings.stepGoal,
     )
 }
 
@@ -549,6 +687,7 @@ private fun HomeScreen(
 private fun HeaderBlock(
     title: String,
     subtitle: String,
+    batteryPercent: Int?,
     mobileRelayActive: Boolean,
 ) {
     Column {
@@ -570,9 +709,16 @@ private fun HeaderBlock(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.padding(top = 20.dp),
         ) {
-            MiniStatus(label = "100%", active = true)
             MiniStatus(
-                label = if (mobileRelayActive) "Mobile active" else "Waiting",
+                label = batteryPercent?.let { "$it%" } ?: "--%",
+                active = batteryPercent != null,
+            )
+            MiniStatus(
+                label = if (mobileRelayActive) {
+                    stringResource(R.string.connected)
+                } else {
+                    stringResource(R.string.disconnected)
+                },
                 active = mobileRelayActive,
             )
         }
@@ -581,13 +727,13 @@ private fun HeaderBlock(
 
 @Composable
 private fun RingDashboardCard(
-    mobileRelayActive: Boolean,
-    lastSync: String,
+    snapshot: RingDashboardSnapshot,
+    stepGoal: Int,
 ) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(430.dp)
+            .height(520.dp)
             .clip(RoundedCornerShape(8.dp))
             .background(
                 Brush.verticalGradient(
@@ -601,28 +747,53 @@ private fun RingDashboardCard(
             .border(1.dp, AppLine.copy(alpha = 0.4f), RoundedCornerShape(8.dp))
             .padding(18.dp),
     ) {
-        LargeRingVisual(
-            modifier = Modifier
-                .size(250.dp)
-                .align(Alignment.CenterEnd)
-                .offset(x = 82.dp),
-        )
         Column(
             modifier = Modifier
                 .fillMaxHeight()
-                .fillMaxWidth(0.72f),
-            verticalArrangement = Arrangement.spacedBy(15.dp),
+                .fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(13.dp),
         ) {
-            MetricRow("Activity", "15,940", "steps", "124 minutes", 0.70f)
-            MetricRow("Readiness", "90", "Perfect", "Stable", 0.84f)
-            MetricRow("Sleep", "8 h 40", "min", "Good rhythm", 0.78f)
-            MetricRow("Avg. Heart Rate", "89", "BPM", "Last relay sample", 0.45f)
-            MetricRow("HRV", "84", "ms", "Balanced", 0.62f)
-            MetricRow("Oxygen in blood", "98", "%", "Normal", 0.88f)
-            Spacer(modifier = Modifier.weight(1f))
-            StatusPill(
-                label = if (mobileRelayActive) "Last sync $lastSync" else "Relay standby",
-                active = mobileRelayActive,
+            MetricRow(
+                stringResource(R.string.metric_steps),
+                ringIntText(snapshot.steps),
+                stringResource(R.string.unit_steps),
+                ringSampleDetail(snapshot.steps),
+                progressFrom(snapshot.steps, stepGoal),
+            )
+            MetricRow(
+                stringResource(R.string.metric_calories),
+                ringIntText(snapshot.calories),
+                stringResource(R.string.unit_kcal),
+                ringSampleDetail(snapshot.calories),
+                progressFrom(snapshot.calories, 800),
+            )
+            MetricRow(
+                stringResource(R.string.metric_distance),
+                ringIntText(snapshot.distanceMeters),
+                stringResource(R.string.unit_meter),
+                ringSampleDetail(snapshot.distanceMeters),
+                progressFrom(snapshot.distanceMeters, 10_000),
+            )
+            MetricRow(
+                stringResource(R.string.metric_heart_rate),
+                ringIntText(snapshot.heartRate),
+                stringResource(R.string.unit_bpm),
+                ringSampleDetail(snapshot.heartRate),
+                progressFrom(snapshot.heartRate, 180),
+            )
+            MetricRow(
+                stringResource(R.string.metric_spo2),
+                ringIntText(snapshot.spo2),
+                stringResource(R.string.unit_percent),
+                ringSampleDetail(snapshot.spo2),
+                progressFrom(snapshot.spo2, 100),
+            )
+            MetricRow(
+                stringResource(R.string.metric_sleep),
+                sleepText(snapshot.sleepMinutes),
+                stringResource(R.string.unit_min),
+                ringSampleDetail(snapshot.sleepMinutes),
+                progressFrom(snapshot.sleepMinutes, 540),
             )
         }
     }
@@ -633,8 +804,12 @@ private fun RelayConnectionCard(
     settings: RelaySettings,
     mobileRelayActive: Boolean,
     uploadStatus: String,
+    uploadOk: Boolean,
     onEditSetup: () -> Unit,
 ) {
+    val notSet = stringResource(R.string.not_set)
+    val homeAssistantUrl = settings.homeAssistantUrl.trim()
+    val ringId = compactRingId(settings.ringId)
     SetupCard {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -643,7 +818,7 @@ private fun RelayConnectionCard(
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "Relay Status",
+                    text = stringResource(R.string.relay_status),
                     style = MaterialTheme.typography.titleMedium,
                     color = AppText,
                 )
@@ -659,12 +834,23 @@ private fun RelayConnectionCard(
             StatusDot(active = mobileRelayActive)
         }
         Spacer(modifier = Modifier.height(12.dp))
-        InfoLine("HA", settings.homeAssistantUrl.ifBlank { "Nicht gesetzt" })
-        InfoLine("Ring", compactRingId(settings.ringId))
-        InfoLine("Intervall", "${settings.syncIntervalMinutes} min")
+        StatusPill(label = uploadStatus, active = uploadOk)
+        Spacer(modifier = Modifier.height(12.dp))
+        InfoLine(
+            stringResource(R.string.info_ha),
+            if (homeAssistantUrl.isBlank()) notSet else homeAssistantUrl,
+        )
+        InfoLine(
+            stringResource(R.string.info_ring),
+            if (ringId.isBlank()) notSet else ringId,
+        )
+        InfoLine(
+            stringResource(R.string.info_interval),
+            "${settings.syncIntervalMinutes} ${stringResource(R.string.unit_min)}",
+        )
         Spacer(modifier = Modifier.height(14.dp))
         SecondaryRelayButton(
-            text = "Verbindung bearbeiten",
+            text = stringResource(R.string.button_edit_connection),
             onClick = onEditSetup,
             modifier = Modifier.fillMaxWidth(),
         )
@@ -672,65 +858,1025 @@ private fun RelayConnectionCard(
 }
 
 @Composable
-private fun ActivityScreen() {
+private fun ActivityScreen(
+    snapshot: RingDashboardSnapshot,
+    samples: List<RelaySampleDto>,
+    mobileRelayActive: Boolean,
+    stepGoal: Int,
+) {
+    val normalizedStepGoal = stepGoal.coerceIn(MIN_STEP_GOAL_STEPS, MAX_STEP_GOAL_STEPS)
     HeaderBlock(
-        title = "Activity",
-        subtitle = "Heute",
-        mobileRelayActive = true,
+        title = stringResource(R.string.activity_title),
+        subtitle = stringResource(R.string.activity_subtitle),
+        batteryPercent = snapshot.batteryPercent,
+        mobileRelayActive = mobileRelayActive,
     )
     Spacer(modifier = Modifier.height(22.dp))
-    InsightCard(
-        title = "Steps",
-        value = "15,940",
-        unit = "steps",
-        progress = 0.78f,
+    ActivityTrendCard(
+        snapshot = snapshot,
+        samples = samples,
+        stepGoal = normalizedStepGoal,
     )
-    Spacer(modifier = Modifier.height(14.dp))
-    InsightCard(
-        title = "Calories",
-        value = "594",
-        unit = "kcal",
-        progress = 0.52f,
-    )
-    Spacer(modifier = Modifier.height(14.dp))
-    TimelineCard(
-        title = "Movement",
-        values = listOf(0.15f, 0.35f, 0.22f, 0.64f, 0.48f, 0.82f, 0.58f),
+    Spacer(modifier = Modifier.height(16.dp))
+    ActivityGoalCard(
+        snapshot = snapshot,
+        stepGoal = normalizedStepGoal,
     )
 }
 
 @Composable
-private fun SleepScreen() {
-    HeaderBlock(
-        title = "Sleep",
-        subtitle = "Letzte Nacht",
-        mobileRelayActive = true,
+private fun ActivityTrendCard(
+    snapshot: RingDashboardSnapshot,
+    samples: List<RelaySampleDto>,
+    stepGoal: Int,
+) {
+    var selectedPeriod by rememberSaveable { mutableStateOf("day") }
+    SetupCard {
+        ActivityPeriodSelector(
+            selectedPeriod = selectedPeriod,
+            onSelectedPeriodChange = { selectedPeriod = it },
+        )
+        ActivityBarChart(
+            samples = samples,
+            stepGoal = stepGoal,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(168.dp),
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Text("06", color = AppMuted, style = MaterialTheme.typography.labelSmall)
+            Text("12", color = AppMuted, style = MaterialTheme.typography.labelSmall)
+            Text("18", color = AppMuted, style = MaterialTheme.typography.labelSmall)
+            Text("24", color = AppMuted, style = MaterialTheme.typography.labelSmall)
+        }
+        ActivityStatsGrid(snapshot = snapshot)
+    }
+}
+
+@Composable
+private fun ActivityPeriodSelector(
+    selectedPeriod: String,
+    onSelectedPeriodChange: (String) -> Unit,
+) {
+    val periods = listOf(
+        "day" to stringResource(R.string.activity_period_day),
+        "week" to stringResource(R.string.activity_period_week),
+        "month" to stringResource(R.string.activity_period_month),
     )
-    Spacer(modifier = Modifier.height(22.dp))
-    InsightCard(
-        title = "Sleep duration",
-        value = "8 h 40",
-        unit = "min",
-        progress = 0.82f,
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(24.dp))
+            .background(AppPanelSoft.copy(alpha = 0.92f))
+            .padding(4.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        periods.forEach { (key, label) ->
+            val selected = selectedPeriod == key
+            val interactionSource = remember { MutableInteractionSource() }
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .height(34.dp)
+                    .clip(RoundedCornerShape(18.dp))
+                    .background(if (selected) AppSilver.copy(alpha = 0.14f) else Color.Transparent)
+                    .clickable(
+                        interactionSource = interactionSource,
+                        indication = null,
+                    ) { onSelectedPeriodChange(key) },
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = label,
+                    color = if (selected) AppText else AppMuted,
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ActivityBarChart(
+    samples: List<RelaySampleDto>,
+    stepGoal: Int,
+    modifier: Modifier = Modifier,
+) {
+    val bars = remember(samples) { activityHourBars(samples) }
+    Canvas(modifier = modifier) {
+        val gridRows = 4
+        val leftInset = 6f
+        val rightInset = 6f
+        val chartWidth = size.width - leftInset - rightInset
+        val bottom = size.height - 8f
+        repeat(gridRows) { index ->
+            val y = 8f + (bottom - 8f) * index / (gridRows - 1)
+            drawLine(
+                color = AppLine.copy(alpha = 0.42f),
+                start = Offset(leftInset, y),
+                end = Offset(size.width - rightInset, y),
+                strokeWidth = 1.2f,
+            )
+        }
+        listOf(6, 12, 18).forEach { hour ->
+            val x = leftInset + chartWidth * hour / 24f
+            drawLine(
+                color = AppLine.copy(alpha = 0.30f),
+                start = Offset(x, 8f),
+                end = Offset(x, bottom),
+                strokeWidth = 1.2f,
+            )
+        }
+        val maxValue = maxOf(bars.maxOrNull() ?: 0f, stepGoal / 3f, 1f)
+        val slotWidth = chartWidth / 24f
+        val strokeWidth = (slotWidth * 0.42f).coerceIn(3f, 12f)
+        bars.forEachIndexed { index, value ->
+            if (value > 0f) {
+                val normalized = (value / maxValue).coerceIn(0.06f, 1f)
+                val x = leftInset + slotWidth * index + slotWidth / 2f
+                val y = bottom - (bottom - 14f) * normalized
+                drawLine(
+                    color = AppGreen,
+                    start = Offset(x, bottom),
+                    end = Offset(x, y),
+                    strokeWidth = strokeWidth,
+                    cap = StrokeCap.Round,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ActivityStatsGrid(snapshot: RingDashboardSnapshot) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            ActivityStatCell(
+                label = stringResource(R.string.metric_steps),
+                value = formattedInt(snapshot.steps),
+                unit = stringResource(R.string.unit_steps),
+                modifier = Modifier.weight(1f),
+            )
+            ActivityStatCell(
+                label = stringResource(R.string.metric_distance),
+                value = distanceValueText(snapshot.distanceMeters),
+                unit = distanceUnitText(snapshot.distanceMeters),
+                modifier = Modifier.weight(1f),
+            )
+        }
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(1.dp)
+                .background(AppLine.copy(alpha = 0.45f)),
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            ActivityStatCell(
+                label = stringResource(R.string.metric_calories),
+                value = ringIntText(snapshot.calories),
+                unit = stringResource(R.string.unit_kcal),
+                modifier = Modifier.weight(1f),
+            )
+            ActivityStatCell(
+                label = stringResource(R.string.activity_duration),
+                value = ringIntText(snapshot.activityMinutes),
+                unit = stringResource(R.string.unit_min),
+                modifier = Modifier.weight(1f),
+            )
+        }
+    }
+}
+
+@Composable
+private fun ActivityStatCell(
+    label: String,
+    value: String,
+    unit: String,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier = modifier) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = AppMuted,
+        )
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(top = 3.dp),
+        ) {
+            Text(
+                text = value,
+                style = MaterialTheme.typography.headlineSmall,
+                color = AppText,
+                fontWeight = FontWeight.Light,
+            )
+            Spacer(modifier = Modifier.width(5.dp))
+            Text(
+                text = unit,
+                style = MaterialTheme.typography.bodySmall,
+                color = AppMuted,
+            )
+        }
+    }
+}
+
+@Composable
+private fun ActivityGoalCard(
+    snapshot: RingDashboardSnapshot,
+    stepGoal: Int,
+) {
+    val progress = stepProgress(snapshot.steps, stepGoal)
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(22.dp))
+            .background(
+                Brush.verticalGradient(
+                    listOf(
+                        AppPanelSoft.copy(alpha = 0.95f),
+                        AppInk.copy(alpha = 0.98f),
+                    ),
+                ),
+            )
+            .border(1.dp, AppLine.copy(alpha = 0.32f), RoundedCornerShape(22.dp))
+            .padding(18.dp),
+    ) {
+        Column {
+            Text(
+                text = stringResource(R.string.activity_title),
+                style = MaterialTheme.typography.titleLarge,
+                color = AppText,
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            WeekdayProgressRow(progress = progress)
+            Spacer(modifier = Modifier.height(20.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(18.dp),
+                ) {
+                    ActivitySideMetric(
+                        label = stringResource(R.string.metric_calories),
+                        value = ringIntText(snapshot.calories),
+                        unit = stringResource(R.string.unit_kcal),
+                    )
+                    ActivitySideMetric(
+                        label = stringResource(R.string.activity_duration),
+                        value = ringIntText(snapshot.activityMinutes),
+                        unit = stringResource(R.string.unit_min),
+                    )
+                }
+                StepProgressRing(
+                    steps = snapshot.steps,
+                    stepGoal = stepGoal,
+                    progress = progress,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun WeekdayProgressRow(progress: Float) {
+    val todayIndex = (LocalDate.now().dayOfWeek.value - 1).coerceIn(0, 6)
+    val labels = listOf(
+        stringResource(R.string.weekday_mon),
+        stringResource(R.string.weekday_tue),
+        stringResource(R.string.weekday_wed),
+        stringResource(R.string.weekday_thu),
+        stringResource(R.string.weekday_fri),
+        stringResource(R.string.weekday_sat),
+        stringResource(R.string.weekday_sun),
     )
-    Spacer(modifier = Modifier.height(14.dp))
-    InsightCard(
-        title = "Readiness",
-        value = "90",
-        unit = "Perfect",
-        progress = 0.90f,
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(13.dp))
+            .background(AppSilver.copy(alpha = 0.09f))
+            .padding(horizontal = 6.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        labels.forEachIndexed { index, label ->
+            DayProgressItem(
+                label = label,
+                progress = if (index == todayIndex) progress else 0f,
+                selected = index == todayIndex,
+                modifier = Modifier.weight(1f),
+            )
+        }
+    }
+}
+
+@Composable
+private fun DayProgressItem(
+    label: String,
+    progress: Float,
+    selected: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier
+            .clip(RoundedCornerShape(10.dp))
+            .background(if (selected) AppSilver.copy(alpha = 0.11f) else Color.Transparent)
+            .padding(vertical = 6.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Canvas(
+            modifier = Modifier
+                .width(34.dp)
+                .height(18.dp),
+        ) {
+            drawArc(
+                color = AppLine,
+                startAngle = 180f,
+                sweepAngle = 180f,
+                useCenter = false,
+                style = Stroke(width = 4f, cap = StrokeCap.Round),
+            )
+            if (progress > 0f) {
+                drawArc(
+                    color = AppGreen,
+                    startAngle = 180f,
+                    sweepAngle = 180f * progress.coerceIn(0f, 1f),
+                    useCenter = false,
+                    style = Stroke(width = 4f, cap = StrokeCap.Round),
+                )
+            }
+        }
+        Text(
+            text = label,
+            color = if (selected) AppText else AppMuted,
+            style = MaterialTheme.typography.labelSmall,
+            modifier = Modifier.padding(top = 3.dp),
+        )
+    }
+}
+
+@Composable
+private fun ActivitySideMetric(
+    label: String,
+    value: String,
+    unit: String,
+) {
+    Column {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodySmall,
+            color = AppMuted,
+        )
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(top = 5.dp),
+        ) {
+            Text(
+                text = value,
+                style = MaterialTheme.typography.headlineSmall,
+                color = AppText,
+                fontWeight = FontWeight.Light,
+            )
+            Spacer(modifier = Modifier.width(4.dp))
+            Text(
+                text = unit,
+                style = MaterialTheme.typography.bodySmall,
+                color = AppMuted,
+            )
+        }
+    }
+}
+
+@Composable
+private fun StepProgressRing(
+    steps: Int?,
+    stepGoal: Int,
+    progress: Float,
+) {
+    Box(
+        modifier = Modifier.size(150.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            drawArc(
+                color = AppLine.copy(alpha = 0.72f),
+                startAngle = -90f,
+                sweepAngle = 360f,
+                useCenter = false,
+                style = Stroke(width = 14f, cap = StrokeCap.Round),
+            )
+            if (progress > 0f) {
+                drawArc(
+                    color = AppGreen,
+                    startAngle = -90f,
+                    sweepAngle = 360f * progress.coerceIn(0f, 1f),
+                    useCenter = false,
+                    style = Stroke(width = 14f, cap = StrokeCap.Round),
+                )
+            }
+        }
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                text = formattedInt(steps),
+                style = MaterialTheme.typography.headlineSmall,
+                color = AppText,
+                fontWeight = FontWeight.Light,
+            )
+            Text(
+                text = stringResource(R.string.unit_steps),
+                style = MaterialTheme.typography.bodyMedium,
+                color = AppMuted,
+            )
+            Text(
+                text = stringResource(R.string.step_goal_short, formattedInt(stepGoal)),
+                style = MaterialTheme.typography.labelSmall,
+                color = AppDim,
+                modifier = Modifier.padding(top = 4.dp),
+            )
+        }
+    }
+}
+
+@Composable
+private fun SleepScreen(
+    snapshot: RingDashboardSnapshot,
+    samples: List<RelaySampleDto>,
+    mobileRelayActive: Boolean,
+) {
+    val sleepSegments = remember(samples) { sleepStageSegments(samples) }
+    var selectedPeriod by rememberSaveable { mutableStateOf("day") }
+    SleepOverviewCard(
+        snapshot = snapshot,
+        samples = samples,
+        segments = sleepSegments,
+        selectedPeriod = selectedPeriod,
+        onSelectedPeriodChange = { selectedPeriod = it },
     )
-    Spacer(modifier = Modifier.height(14.dp))
-    TimelineCard(
-        title = "Sleep stages",
-        values = listOf(0.62f, 0.38f, 0.78f, 0.52f, 0.86f, 0.44f, 0.70f),
+    Spacer(modifier = Modifier.height(16.dp))
+    SleepQualityCard(
+        snapshot = snapshot,
+        segments = sleepSegments,
     )
+    Spacer(modifier = Modifier.height(10.dp))
+    Text(
+        text = if (mobileRelayActive) stringResource(R.string.connected) else stringResource(R.string.disconnected),
+        style = MaterialTheme.typography.labelSmall,
+        color = if (mobileRelayActive) AppGreen else AppDim,
+        modifier = Modifier.padding(start = 8.dp),
+    )
+}
+
+@Composable
+private fun SleepOverviewCard(
+    snapshot: RingDashboardSnapshot,
+    samples: List<RelaySampleDto>,
+    segments: List<SleepStageSegment>,
+    selectedPeriod: String,
+    onSelectedPeriodChange: (String) -> Unit,
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(24.dp))
+            .background(
+                Brush.verticalGradient(
+                    listOf(
+                        AppPanelSoft.copy(alpha = 0.98f),
+                        Color(0xFF1B2928).copy(alpha = 0.96f),
+                        AppInk.copy(alpha = 0.98f),
+                    ),
+                ),
+            )
+            .border(1.dp, AppLine.copy(alpha = 0.34f), RoundedCornerShape(24.dp))
+            .padding(16.dp),
+    ) {
+        Column {
+            Text(
+                text = stringResource(R.string.sleep_title),
+                style = MaterialTheme.typography.titleMedium,
+                color = AppText,
+                modifier = Modifier.align(Alignment.CenterHorizontally),
+            )
+            Text(
+                text = sleepDateText(samples),
+                style = MaterialTheme.typography.labelSmall,
+                color = AppMuted,
+                modifier = Modifier
+                    .padding(top = 2.dp)
+                    .align(Alignment.CenterHorizontally),
+            )
+            Spacer(modifier = Modifier.height(18.dp))
+            ActivityPeriodSelector(
+                selectedPeriod = selectedPeriod,
+                onSelectedPeriodChange = onSelectedPeriodChange,
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(
+                text = stringResource(R.string.sleep_total_time),
+                style = MaterialTheme.typography.labelSmall,
+                color = AppMuted,
+            )
+            Text(
+                text = sleepClockText(snapshot.sleepMinutes),
+                style = MaterialTheme.typography.displaySmall,
+                color = AppText,
+                fontWeight = FontWeight.Light,
+                modifier = Modifier.padding(top = 4.dp),
+            )
+            Text(
+                text = sleepDateText(samples),
+                style = MaterialTheme.typography.bodySmall,
+                color = AppText,
+                modifier = Modifier.padding(top = 2.dp),
+            )
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 16.dp, bottom = 16.dp)
+                    .height(1.dp)
+                    .background(AppSilver.copy(alpha = 0.22f)),
+            )
+            SleepStageTimeline(
+                segments = segments,
+                samples = samples,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(236.dp),
+            )
+            SleepStageLegend(
+                modifier = Modifier.padding(top = 12.dp),
+            )
+            if (segments.isEmpty()) {
+                Text(
+                    text = stringResource(R.string.sleep_stage_missing),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = AppDim,
+                    modifier = Modifier.padding(top = 12.dp),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SleepStageTimeline(
+    segments: List<SleepStageSegment>,
+    samples: List<RelaySampleDto>,
+    modifier: Modifier = Modifier,
+) {
+    val stages = listOf(
+        "awake" to stringResource(R.string.sleep_stage_awake),
+        "rem" to stringResource(R.string.sleep_stage_rem),
+        "light" to stringResource(R.string.sleep_stage_light),
+        "deep" to stringResource(R.string.sleep_stage_deep),
+    )
+    val axisLabels = remember(samples, segments) { sleepAxisLabels(samples, segments) }
+    Column(modifier = modifier) {
+        Row(
+            modifier = Modifier.weight(1f),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(
+                modifier = Modifier
+                    .width(76.dp)
+                    .fillMaxHeight()
+                    .padding(vertical = 10.dp),
+                verticalArrangement = Arrangement.SpaceBetween,
+            ) {
+                stages.forEach { (_stage, label) ->
+                    Text(
+                        text = label,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = AppMuted,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+            Canvas(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight(),
+            ) {
+                val top = 14f
+                val bottom = size.height - 16f
+                val rowStep = (bottom - top) / (stages.size - 1).coerceAtLeast(1)
+                fun yFor(stage: String): Float {
+                    val index = stages.indexOfFirst { (key, _label) -> key == stage }
+                        .takeIf { it >= 0 } ?: 2
+                    return top + rowStep * index
+                }
+
+                stages.indices.forEach { index ->
+                    val y = top + rowStep * index
+                    drawLine(
+                        color = AppSilver.copy(alpha = 0.20f),
+                        start = Offset(0f, y),
+                        end = Offset(size.width, y),
+                        strokeWidth = 1.3f,
+                    )
+                }
+                listOf(0.25f, 0.5f, 0.75f).forEach { fraction ->
+                    val x = size.width * fraction
+                    drawLine(
+                        color = AppLine.copy(alpha = 0.20f),
+                        start = Offset(x, top),
+                        end = Offset(x, bottom),
+                        strokeWidth = 1f,
+                    )
+                }
+
+                if (segments.isEmpty()) {
+                    return@Canvas
+                }
+
+                val totalMinutes = segments.sumOf { it.minutes }.coerceAtLeast(1)
+                val chartStart = 4f
+                val chartEnd = size.width - 5f
+                val chartWidth = (chartEnd - chartStart).coerceAtLeast(1f)
+                var x = chartStart
+                var currentY = yFor(segments.first().stage)
+                segments.forEachIndexed { index, segment ->
+                    val nextX = if (index == segments.lastIndex) {
+                        chartEnd
+                    } else {
+                        (x + chartWidth * segment.minutes / totalMinutes.toFloat())
+                            .coerceAtMost(chartEnd)
+                    }
+                    val color = sleepStageColor(segment.stage)
+                    val segmentWidth = (nextX - x).coerceAtLeast(1f)
+                    drawRect(
+                        brush = Brush.verticalGradient(
+                            colors = listOf(
+                                color.copy(alpha = if (segment.stage == "awake") 0.0f else 0.22f),
+                                color.copy(alpha = if (segment.stage == "awake") 0.0f else 0.08f),
+                                Color.Transparent,
+                            ),
+                            startY = currentY,
+                            endY = bottom + 20f,
+                        ),
+                        topLeft = Offset(x, currentY),
+                        size = Size(segmentWidth, (bottom - currentY + 20f).coerceAtLeast(1f)),
+                    )
+                    drawLine(
+                        color = color.copy(alpha = 0.22f),
+                        start = Offset(x, currentY),
+                        end = Offset(nextX, currentY),
+                        strokeWidth = 13f,
+                        cap = StrokeCap.Round,
+                    )
+                    drawLine(
+                        color = color,
+                        start = Offset(x, currentY),
+                        end = Offset(nextX, currentY),
+                        strokeWidth = 4.2f,
+                        cap = StrokeCap.Round,
+                    )
+
+                    val nextSegment = segments.getOrNull(index + 1)
+                    if (nextSegment != null) {
+                        val nextY = yFor(nextSegment.stage)
+                        val connectorColor = sleepStageColor(nextSegment.stage)
+                        drawLine(
+                            color = connectorColor.copy(alpha = 0.22f),
+                            start = Offset(nextX, currentY),
+                            end = Offset(nextX, nextY),
+                            strokeWidth = 13f,
+                            cap = StrokeCap.Round,
+                        )
+                        drawLine(
+                            color = connectorColor,
+                            start = Offset(nextX, currentY),
+                            end = Offset(nextX, nextY),
+                            strokeWidth = 4.2f,
+                            cap = StrokeCap.Round,
+                        )
+                        currentY = nextY
+                    }
+                    x = nextX
+                }
+            }
+        }
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 88.dp, top = 7.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            axisLabels.forEach { label ->
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = AppDim,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SleepStageLegend(modifier: Modifier = Modifier) {
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        SleepLegendItem(color = SleepDeepColor, label = stringResource(R.string.sleep_legend_deep))
+        SleepLegendItem(color = SleepLightColor, label = stringResource(R.string.sleep_legend_light))
+        SleepLegendItem(color = SleepRemColor, label = stringResource(R.string.sleep_legend_rem))
+        SleepLegendItem(color = SleepAwakeColor, label = stringResource(R.string.sleep_legend_awake))
+    }
+}
+
+@Composable
+private fun SleepLegendItem(
+    color: Color,
+    label: String,
+) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(
+            modifier = Modifier
+                .size(12.dp)
+                .clip(CircleShape)
+                .background(color),
+        )
+        Spacer(modifier = Modifier.width(5.dp))
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = AppMuted,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
+}
+
+@Composable
+private fun SleepQualityCard(
+    snapshot: RingDashboardSnapshot,
+    segments: List<SleepStageSegment>,
+) {
+    val stageMinutes = remember(segments) { sleepStageMinutes(segments) }
+    val lightMinutes = snapshot.sleepLightMinutes ?: stageMinutes["light"]
+    val deepMinutes = snapshot.sleepDeepMinutes ?: stageMinutes["deep"]
+    val remMinutes = snapshot.sleepRemMinutes ?: stageMinutes["rem"]
+    val totalSleep = snapshot.sleepMinutes ?: listOfNotNull(
+        lightMinutes,
+        deepMinutes,
+        remMinutes,
+    ).sum().takeIf { it > 0 }
+    val quality = remember(snapshot, segments) { sleepQuality(snapshot, segments) }
+    val qualityText = when {
+        quality.score == null -> stringResource(R.string.metric_missing_ring_sample)
+        quality.score >= 80 -> stringResource(R.string.sleep_quality_good)
+        quality.score >= 60 -> stringResource(R.string.sleep_quality_ok)
+        else -> stringResource(R.string.sleep_quality_low)
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(22.dp))
+            .background(
+                Brush.verticalGradient(
+                    listOf(
+                        AppPanel.copy(alpha = 0.96f),
+                        AppPanelSoft.copy(alpha = 0.94f),
+                        AppInk.copy(alpha = 0.98f),
+                    ),
+                ),
+            )
+            .border(1.dp, AppLine.copy(alpha = 0.34f), RoundedCornerShape(22.dp))
+            .padding(18.dp),
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(15.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = stringResource(R.string.sleep_quality),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = AppText,
+                )
+                Box(
+                    modifier = Modifier
+                        .size(28.dp)
+                        .clip(CircleShape)
+                        .border(1.dp, AppMuted.copy(alpha = 0.8f), CircleShape),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text("?", color = AppMuted, style = MaterialTheme.typography.bodySmall)
+                }
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(18.dp),
+                    modifier = Modifier.weight(1f),
+                ) {
+                    SleepQualityMetric(
+                        label = stringResource(R.string.sleep_effectiveness),
+                        value = quality.effectiveness?.let { "$it%" } ?: "--",
+                    )
+                    SleepQualityMetric(
+                        label = stringResource(R.string.sleep_quality_time),
+                        value = sleepClockText(totalSleep),
+                    )
+                }
+                SleepQualityGauge(
+                    score = quality.score,
+                    label = qualityText,
+                    modifier = Modifier.size(132.dp),
+                )
+            }
+            SleepPhaseRow(
+                label = stringResource(R.string.sleep_stage_deep),
+                minutes = deepMinutes,
+                totalMinutes = totalSleep,
+                color = SleepDeepColor,
+            )
+            SleepPhaseRow(
+                label = stringResource(R.string.sleep_stage_rem),
+                minutes = remMinutes,
+                totalMinutes = totalSleep,
+                color = SleepRemColor,
+            )
+            SleepPhaseRow(
+                label = stringResource(R.string.sleep_stage_light),
+                minutes = lightMinutes,
+                totalMinutes = totalSleep,
+                color = SleepLightColor,
+            )
+        }
+    }
+}
+
+@Composable
+private fun SleepQualityMetric(
+    label: String,
+    value: String,
+) {
+    Column {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = AppMuted,
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.headlineSmall,
+            color = AppText,
+            fontWeight = FontWeight.Light,
+            modifier = Modifier.padding(top = 4.dp),
+        )
+    }
+}
+
+@Composable
+private fun SleepQualityGauge(
+    score: Int?,
+    label: String,
+    modifier: Modifier = Modifier,
+) {
+    Box(
+        modifier = modifier,
+        contentAlignment = Alignment.Center,
+    ) {
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val strokeWidth = 10f
+            drawArc(
+                color = AppLine.copy(alpha = 0.75f),
+                startAngle = 130f,
+                sweepAngle = 280f,
+                useCenter = false,
+                style = Stroke(width = strokeWidth, cap = StrokeCap.Round),
+            )
+            val progress = ((score ?: 0).toFloat() / 100f).coerceIn(0f, 1f)
+            drawArc(
+                brush = Brush.sweepGradient(
+                    listOf(
+                        AppGreen,
+                        SleepRemColor,
+                        AppGreen,
+                    ),
+                ),
+                startAngle = 130f,
+                sweepAngle = 280f * progress,
+                useCenter = false,
+                style = Stroke(width = strokeWidth, cap = StrokeCap.Round),
+            )
+        }
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                text = score?.toString() ?: "--",
+                style = MaterialTheme.typography.headlineMedium,
+                color = AppText,
+                fontWeight = FontWeight.Light,
+            )
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall,
+                color = AppMuted,
+            )
+        }
+    }
+}
+
+@Composable
+private fun SleepPhaseRow(
+    label: String,
+    minutes: Int?,
+    totalMinutes: Int?,
+    color: Color,
+) {
+    Column {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodyMedium,
+                color = AppText,
+            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = minutes?.toString() ?: "--",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = AppText,
+                    fontWeight = FontWeight.Light,
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    text = stringResource(R.string.unit_min),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = AppMuted,
+                )
+            }
+        }
+        Canvas(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(16.dp)
+                .padding(top = 8.dp),
+        ) {
+            drawLine(
+                color = AppLine.copy(alpha = 0.72f),
+                start = Offset(0f, size.height / 2f),
+                end = Offset(size.width, size.height / 2f),
+                strokeWidth = 8f,
+                cap = StrokeCap.Round,
+            )
+            val progress = if (minutes != null && totalMinutes != null && totalMinutes > 0) {
+                (minutes.toFloat() / totalMinutes.toFloat()).coerceIn(0f, 1f)
+            } else {
+                0f
+            }
+            if (progress > 0f) {
+                drawLine(
+                    color = color,
+                    start = Offset(0f, size.height / 2f),
+                    end = Offset(size.width * progress, size.height / 2f),
+                    strokeWidth = 8f,
+                    cap = StrokeCap.Round,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun EmptyDataCard() {
+    SetupCard {
+        Text(
+            text = stringResource(R.string.empty_ring_values_title),
+            style = MaterialTheme.typography.titleMedium,
+            color = AppText,
+        )
+        Text(
+            text = stringResource(R.string.empty_ring_values_body),
+            style = MaterialTheme.typography.bodyMedium,
+            color = AppMuted,
+        )
+    }
 }
 
 @Composable
 private fun MoreScreen(
     settings: RelaySettings,
     uploadStatus: String,
+    uploadOk: Boolean,
     uploading: Boolean,
     canUpload: Boolean,
     onUpload: () -> Unit,
@@ -739,16 +1885,18 @@ private fun MoreScreen(
     onRelayTokenChange: (String) -> Unit,
     onRelayIdChange: (String) -> Unit,
     onRingIdChange: (String) -> Unit,
+    onRingNameChange: (String) -> Unit,
     onSyncIntervalChange: (Int) -> Unit,
+    onStepGoalChange: (Int) -> Unit,
     onSave: () -> Unit,
 ) {
     Text(
-        text = "More",
+        text = stringResource(R.string.more_title),
         style = MaterialTheme.typography.headlineLarge,
         color = AppText,
     )
     Text(
-        text = "Relay und Verbindung",
+        text = stringResource(R.string.more_subtitle),
         style = MaterialTheme.typography.bodyLarge,
         color = AppMuted,
         modifier = Modifier.padding(top = 6.dp, bottom = 18.dp),
@@ -757,14 +1905,14 @@ private fun MoreScreen(
         RelayTextField(
             value = settings.homeAssistantUrl,
             onValueChange = onHomeAssistantUrlChange,
-            label = "HA-Link",
+            label = stringResource(R.string.ha_link_label),
             placeholder = "https://ha.example.net",
             keyboardType = KeyboardType.Uri,
         )
         RelayTextField(
             value = settings.relayToken,
             onValueChange = onRelayTokenChange,
-            label = "Relay-Token",
+            label = stringResource(R.string.relay_token_label),
             placeholder = "fitorb_relay_...",
             keyboardType = KeyboardType.Password,
             password = true,
@@ -772,33 +1920,48 @@ private fun MoreScreen(
         RelayTextField(
             value = settings.relayId,
             onValueChange = onRelayIdChange,
-            label = "Relay-ID",
+            label = stringResource(R.string.relay_id_label),
             placeholder = "android-pixel",
+            keyboardType = KeyboardType.Text,
+        )
+        RelayTextField(
+            value = settings.ringName,
+            onValueChange = onRingNameChange,
+            label = stringResource(R.string.ring_name_label),
+            placeholder = stringResource(R.string.ring_name_placeholder),
             keyboardType = KeyboardType.Text,
         )
         RelayTextField(
             value = settings.ringId,
             onValueChange = onRingIdChange,
-            label = "Ring ID",
-            placeholder = "AA:BB:CC:DD:EE:FF",
+            label = stringResource(R.string.ring_id_label),
+            placeholder = stringResource(R.string.ring_id_placeholder),
             keyboardType = KeyboardType.Text,
         )
         IntervalSlider(
             syncInterval = settings.syncIntervalMinutes,
             onSyncIntervalChange = onSyncIntervalChange,
         )
-        StatusPill(label = uploadStatus, active = uploadStatus.startsWith("OK"))
+        StepGoalSlider(
+            stepGoal = settings.stepGoal,
+            onStepGoalChange = onStepGoalChange,
+        )
+        StatusPill(label = uploadStatus, active = uploadOk)
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             SecondaryRelayButton(
-                text = "Speichern",
+                text = stringResource(R.string.button_save),
                 onClick = onSave,
                 modifier = Modifier.weight(1f),
             )
             PrimaryRelayButton(
-                text = if (uploading) "Sende..." else "Test",
+                text = if (uploading) {
+                    stringResource(R.string.button_sending)
+                } else {
+                    stringResource(R.string.button_test)
+                },
                 enabled = canUpload,
                 onClick = onUpload,
                 modifier = Modifier.weight(1f),
@@ -807,7 +1970,7 @@ private fun MoreScreen(
     }
     Spacer(modifier = Modifier.height(14.dp))
     SecondaryRelayButton(
-        text = "Setup neu öffnen",
+        text = stringResource(R.string.button_reopen_setup),
         onClick = onOpenSetupFlow,
         modifier = Modifier.fillMaxWidth(),
     )
@@ -818,7 +1981,7 @@ private fun MetricRow(
     label: String,
     value: String,
     unit: String,
-    detail: String,
+    detail: String?,
     progress: Float,
 ) {
     Row(
@@ -832,7 +1995,7 @@ private fun MetricRow(
                 style = MaterialTheme.typography.labelMedium,
                 color = AppMuted,
             )
-            Row(verticalAlignment = Alignment.Bottom) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = value,
                     style = MaterialTheme.typography.headlineSmall,
@@ -844,16 +2007,17 @@ private fun MetricRow(
                     text = unit,
                     style = MaterialTheme.typography.bodySmall,
                     color = AppMuted,
-                    modifier = Modifier.padding(bottom = 4.dp),
                 )
             }
-            Text(
-                text = detail,
-                style = MaterialTheme.typography.bodySmall,
-                color = AppDim,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
+            if (!detail.isNullOrBlank()) {
+                Text(
+                    text = detail,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = AppDim,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
         }
         MiniChart(progress = progress)
     }
@@ -878,7 +2042,7 @@ private fun InsightCard(
                     style = MaterialTheme.typography.bodyMedium,
                     color = AppMuted,
                 )
-                Row(verticalAlignment = Alignment.Bottom) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         text = value,
                         style = MaterialTheme.typography.displaySmall,
@@ -890,7 +2054,6 @@ private fun InsightCard(
                         text = unit,
                         style = MaterialTheme.typography.bodyMedium,
                         color = AppMuted,
-                        modifier = Modifier.padding(bottom = 9.dp),
                     )
                 }
             }
@@ -946,50 +2109,114 @@ private fun FloatingBottomBar(
     modifier: Modifier = Modifier,
 ) {
     Surface(
-        modifier = modifier.fillMaxWidth(),
-        color = AppPanel.copy(alpha = 0.94f),
-        shape = RoundedCornerShape(8.dp),
+        modifier = modifier
+            .fillMaxWidth()
+            .height(84.dp),
+        color = AppPanel.copy(alpha = 0.62f),
+        shape = RoundedCornerShape(24.dp),
         border = androidx.compose.foundation.BorderStroke(
             1.dp,
-            AppLine.copy(alpha = 0.6f),
+            AppSilver.copy(alpha = 0.26f),
         ),
         tonalElevation = 0.dp,
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp),
+            modifier = Modifier.padding(horizontal = 18.dp, vertical = 10.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             RelayTab.entries.forEach { tab ->
                 val selected = activeTab == tab.key
+                val label = stringResource(tab.labelRes)
+                val interactionSource = remember { MutableInteractionSource() }
+                val hovered by interactionSource.collectIsHoveredAsState()
+                val tabColor = when {
+                    selected -> AppGreen
+                    hovered -> AppText
+                    else -> AppMuted
+                }
                 Column(
                     modifier = Modifier
                         .weight(1f)
+                        .height(62.dp)
                         .clip(RoundedCornerShape(8.dp))
-                        .background(if (selected) AppGreen.copy(alpha = 0.14f) else Color.Transparent)
-                        .clickable { onTabSelected(tab) }
-                        .padding(vertical = 8.dp),
+                        .clickable(
+                            interactionSource = interactionSource,
+                            indication = null,
+                        ) { onTabSelected(tab) }
+                        .padding(top = 5.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(25.dp)
-                            .clip(CircleShape)
-                            .background(if (selected) AppGreen else AppPanelSoft),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text(
-                            text = tab.mark,
-                            color = if (selected) Color.White else AppMuted,
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.SemiBold,
-                        )
-                    }
+                    TabIcon(
+                        tab = tab,
+                        color = tabColor,
+                        modifier = Modifier.size(23.dp),
+                    )
                     Text(
-                        text = tab.label,
-                        color = if (selected) AppText else AppMuted,
+                        text = label,
+                        color = tabColor,
                         style = MaterialTheme.typography.labelSmall,
+                        fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
                         modifier = Modifier.padding(top = 5.dp),
                     )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TabIcon(
+    tab: RelayTab,
+    color: Color,
+    modifier: Modifier = Modifier,
+) {
+    Canvas(modifier = modifier) {
+        val stroke = 2.4f
+        when (tab) {
+            RelayTab.Home -> {
+                drawLine(color, Offset(size.width * 0.18f, size.height * 0.48f), Offset(size.width * 0.5f, size.height * 0.2f), stroke)
+                drawLine(color, Offset(size.width * 0.5f, size.height * 0.2f), Offset(size.width * 0.82f, size.height * 0.48f), stroke)
+                drawLine(color, Offset(size.width * 0.28f, size.height * 0.45f), Offset(size.width * 0.28f, size.height * 0.82f), stroke)
+                drawLine(color, Offset(size.width * 0.72f, size.height * 0.45f), Offset(size.width * 0.72f, size.height * 0.82f), stroke)
+                drawLine(color, Offset(size.width * 0.28f, size.height * 0.82f), Offset(size.width * 0.72f, size.height * 0.82f), stroke)
+            }
+            RelayTab.Activity -> {
+                drawLine(color, Offset(size.width * 0.08f, size.height * 0.58f), Offset(size.width * 0.28f, size.height * 0.58f), stroke, cap = StrokeCap.Round)
+                drawLine(color, Offset(size.width * 0.28f, size.height * 0.58f), Offset(size.width * 0.40f, size.height * 0.30f), stroke, cap = StrokeCap.Round)
+                drawLine(color, Offset(size.width * 0.40f, size.height * 0.30f), Offset(size.width * 0.57f, size.height * 0.78f), stroke, cap = StrokeCap.Round)
+                drawLine(color, Offset(size.width * 0.57f, size.height * 0.78f), Offset(size.width * 0.70f, size.height * 0.48f), stroke, cap = StrokeCap.Round)
+                drawLine(color, Offset(size.width * 0.70f, size.height * 0.48f), Offset(size.width * 0.92f, size.height * 0.48f), stroke, cap = StrokeCap.Round)
+            }
+            RelayTab.Sleep -> {
+                drawArc(
+                    color = color,
+                    startAngle = 105f,
+                    sweepAngle = 230f,
+                    useCenter = false,
+                    topLeft = Offset(size.width * 0.18f, size.height * 0.12f),
+                    size = Size(size.width * 0.62f, size.height * 0.70f),
+                    style = Stroke(width = stroke, cap = StrokeCap.Round),
+                )
+                drawArc(
+                    color = color.copy(alpha = 0.65f),
+                    startAngle = 95f,
+                    sweepAngle = 110f,
+                    useCenter = false,
+                    topLeft = Offset(size.width * 0.38f, size.height * 0.16f),
+                    size = Size(size.width * 0.38f, size.height * 0.58f),
+                    style = Stroke(width = stroke, cap = StrokeCap.Round),
+                )
+            }
+            RelayTab.More -> {
+                val radius = 2.5f
+                listOf(
+                    Offset(size.width * 0.32f, size.height * 0.32f),
+                    Offset(size.width * 0.68f, size.height * 0.32f),
+                    Offset(size.width * 0.32f, size.height * 0.68f),
+                    Offset(size.width * 0.68f, size.height * 0.68f),
+                ).forEach { center ->
+                    drawCircle(color = color, radius = radius, center = center)
                 }
             }
         }
@@ -1054,12 +2281,12 @@ private fun IntervalSlider(
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             Text(
-                text = "Sync-Intervall",
+                text = stringResource(R.string.sync_interval),
                 style = MaterialTheme.typography.bodyMedium,
                 color = AppMuted,
             )
             Text(
-                text = "$syncInterval min",
+                text = "$syncInterval ${stringResource(R.string.unit_min)}",
                 style = MaterialTheme.typography.bodyMedium,
                 color = AppText,
             )
@@ -1077,6 +2304,43 @@ private fun IntervalSlider(
             valueRange = MIN_SYNC_INTERVAL_MINUTES.toFloat()..
                 MAX_SYNC_INTERVAL_MINUTES.toFloat(),
             steps = MAX_SYNC_INTERVAL_MINUTES - MIN_SYNC_INTERVAL_MINUTES - 1,
+        )
+    }
+}
+
+@Composable
+private fun StepGoalSlider(
+    stepGoal: Int,
+    onStepGoalChange: (Int) -> Unit,
+) {
+    val normalizedGoal = stepGoal.coerceIn(MIN_STEP_GOAL_STEPS, MAX_STEP_GOAL_STEPS)
+    Column {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Text(
+                text = stringResource(R.string.step_goal),
+                style = MaterialTheme.typography.bodyMedium,
+                color = AppMuted,
+            )
+            Text(
+                text = "${formattedInt(normalizedGoal)} ${stringResource(R.string.unit_steps)}",
+                style = MaterialTheme.typography.bodyMedium,
+                color = AppText,
+            )
+        }
+        Slider(
+            value = normalizedGoal.toFloat(),
+            onValueChange = { value ->
+                val rounded = (
+                    (value / STEP_GOAL_INCREMENT_STEPS).toInt() *
+                        STEP_GOAL_INCREMENT_STEPS
+                    ).coerceIn(MIN_STEP_GOAL_STEPS, MAX_STEP_GOAL_STEPS)
+                onStepGoalChange(rounded)
+            },
+            valueRange = MIN_STEP_GOAL_STEPS.toFloat()..MAX_STEP_GOAL_STEPS.toFloat(),
+            steps = ((MAX_STEP_GOAL_STEPS - MIN_STEP_GOAL_STEPS) / STEP_GOAL_INCREMENT_STEPS) - 1,
         )
     }
 }
@@ -1212,7 +2476,7 @@ private fun TopStatusRow(label: String) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
-            text = "9:41",
+            text = stringResource(R.string.app_name),
             style = MaterialTheme.typography.bodyMedium,
             color = AppText,
             fontWeight = FontWeight.SemiBold,
@@ -1358,6 +2622,246 @@ private fun AppBackgroundBrush(): Brush =
         ),
     )
 
+@Composable
+private fun ringDisplayName(settings: RelaySettings): String =
+    settings.ringName.trim().ifBlank { stringResource(R.string.default_ring_name) }
+
+@Composable
+private fun ringSampleDetail(value: Int?): String? =
+    if (value == null) {
+        stringResource(R.string.metric_missing_ring_sample)
+    } else {
+        null
+    }
+
+private fun ringIntText(value: Int?): String =
+    value?.toString() ?: "--"
+
+private fun formattedInt(value: Int?): String =
+    value?.let { NumberFormat.getIntegerInstance().format(it) } ?: "--"
+
+private fun distanceValueText(meters: Int?): String =
+    meters?.let {
+        if (it >= 1_000) {
+            String.format(Locale.getDefault(), "%.2f", it / 1_000.0)
+        } else {
+            it.toString()
+        }
+    } ?: "--"
+
+@Composable
+private fun distanceUnitText(meters: Int?): String =
+    if ((meters ?: 0) >= 1_000) {
+        "km"
+    } else {
+        stringResource(R.string.unit_meter)
+    }
+
+private fun sleepText(minutes: Int?): String =
+    minutes?.let { "${it / 60} h ${(it % 60).toString().padStart(2, '0')}" } ?: "--"
+
+private fun sleepClockText(minutes: Int?): String =
+    minutes?.let { "${it / 60}:${(it % 60).toString().padStart(2, '0')}:00" } ?: "--:--:--"
+
+@Composable
+private fun sleepDateText(samples: List<RelaySampleDto>): String {
+    val sleepDate = latestSleepLocalDate(samples)
+        ?: return stringResource(R.string.metric_missing_ring_sample)
+    val formatter = DateTimeFormatter.ofPattern("d MMMM yyyy, EEEE", Locale.getDefault())
+    return formatter.format(sleepDate)
+}
+
+private fun progressFrom(value: Int?, maxValue: Int): Float =
+    value?.let {
+        (it.toFloat() / maxValue.toFloat()).coerceIn(0.08f, 1f)
+    } ?: 0.08f
+
+private fun stepProgress(steps: Int?, stepGoal: Int): Float =
+    steps?.let {
+        (it.toFloat() / stepGoal.coerceAtLeast(1).toFloat()).coerceIn(0f, 1f)
+    } ?: 0f
+
+private fun activityHourBars(samples: List<RelaySampleDto>): List<Float> {
+    val bars = MutableList(24) { 0f }
+    samples
+        .filter { sample -> sample.metric == "steps" }
+        .forEach { sample ->
+            val hour = runCatching {
+                Instant.parse(sample.timestamp).atZone(ZoneId.systemDefault()).hour
+            }.getOrNull() ?: return@forEach
+            val value = sample.numericValue() ?: return@forEach
+            bars[hour] = maxOf(bars[hour], value.toFloat())
+        }
+    return bars
+}
+
+private fun RelaySampleDto.numericValue(): Int? =
+    when (val sampleValue = value) {
+        is RelaySampleValue.IntValue -> sampleValue.value
+        is RelaySampleValue.DoubleValue -> sampleValue.value.toInt()
+        is RelaySampleValue.StringValue -> sampleValue.value.toIntOrNull()
+        is RelaySampleValue.BoolValue -> null
+    }
+
+private data class SleepStageSegment(
+    val stage: String,
+    val minutes: Int,
+)
+
+private data class SleepQuality(
+    val score: Int?,
+    val effectiveness: Int?,
+)
+
+private fun sleepStageSegments(samples: List<RelaySampleDto>): List<SleepStageSegment> {
+    val stageSamples = samples
+        .filter { sample -> sample.metric == "sleep_stage" }
+        .mapNotNull { sample ->
+            val instant = sample.timestampInstantOrNull() ?: return@mapNotNull null
+            val stage = sample.stringValue()?.takeIf { it in setOf("awake", "rem", "light", "deep") }
+                ?: return@mapNotNull null
+            Triple(sample, instant, stage)
+        }
+        .sortedBy { (_sample, instant, _stage) -> instant }
+
+    return stageSamples.mapIndexed { index, (sample, instant, stage) ->
+        val inferredMinutes = stageSamples.getOrNull(index + 1)
+            ?.let { (_nextSample, nextInstant, _nextStage) ->
+                Duration.between(instant, nextInstant).toMinutes().toInt()
+                    .takeIf { it in 1..720 }
+            }
+        SleepStageSegment(
+            stage = stage,
+            minutes = (sample.stageMinutesFromRawHex() ?: inferredMinutes ?: 15)
+                .coerceAtLeast(1),
+        )
+    }
+}
+
+private fun sleepStageMinutes(segments: List<SleepStageSegment>): Map<String, Int> =
+    segments
+        .groupBy { it.stage }
+        .mapValues { (_stage, stageSegments) -> stageSegments.sumOf { it.minutes } }
+
+private fun sleepQuality(
+    snapshot: RingDashboardSnapshot,
+    segments: List<SleepStageSegment>,
+): SleepQuality {
+    val stageMinutes = sleepStageMinutes(segments)
+    val totalMinutes = snapshot.sleepMinutes
+        ?: stageMinutes.values.sum().takeIf { it > 0 }
+    val asleepMinutes = snapshot.sleepAsleepMinutes
+        ?: listOfNotNull(stageMinutes["light"], stageMinutes["deep"], stageMinutes["rem"])
+            .sum()
+            .takeIf { it > 0 }
+    val effectiveness = if (totalMinutes != null && totalMinutes > 0 && asleepMinutes != null) {
+        (asleepMinutes.toFloat() / totalMinutes.toFloat() * 100f)
+            .roundToInt()
+            .coerceIn(0, 100)
+    } else {
+        null
+    }
+    if (totalMinutes == null || totalMinutes <= 0 || effectiveness == null) {
+        return SleepQuality(score = null, effectiveness = effectiveness)
+    }
+
+    val deepMinutes = snapshot.sleepDeepMinutes ?: stageMinutes["deep"] ?: 0
+    val remMinutes = snapshot.sleepRemMinutes ?: stageMinutes["rem"] ?: 0
+    val durationScore = (totalMinutes.toFloat() / 480f * 100f).coerceIn(0f, 100f)
+    val restorativeScore = if (asleepMinutes != null && asleepMinutes > 0) {
+        ((deepMinutes + remMinutes).toFloat() / asleepMinutes.toFloat() / 0.35f * 100f)
+            .coerceIn(0f, 100f)
+    } else {
+        0f
+    }
+    val score = (durationScore * 0.45f + effectiveness * 0.35f + restorativeScore * 0.20f)
+        .roundToInt()
+        .coerceIn(0, 100)
+    return SleepQuality(score = score, effectiveness = effectiveness)
+}
+
+private fun sleepAxisLabels(
+    samples: List<RelaySampleDto>,
+    segments: List<SleepStageSegment>,
+): List<String> {
+    val start = samples
+        .asSequence()
+        .filter { sample -> sample.metric == "sleep_stage" }
+        .mapNotNull { sample -> sample.timestampInstantOrNull() }
+        .minOrNull()
+        ?: return listOf("1:00", "3:00", "5:00", "7:00")
+    val totalMinutes = segments.sumOf { it.minutes }.takeIf { it > 0 } ?: 360
+    val formatter = DateTimeFormatter.ofPattern("H:mm", Locale.getDefault())
+    return listOf(0f, 1f / 3f, 2f / 3f, 1f).map { fraction ->
+        val instant = start.plusSeconds((totalMinutes * fraction * 60f).roundToInt().toLong())
+        formatter.format(roundedToFiveMinutes(instant).atZone(ZoneId.systemDefault()))
+    }
+}
+
+private fun roundedToFiveMinutes(instant: Instant): Instant {
+    val stepSeconds = 5L * 60L
+    val roundedEpoch = ((instant.epochSecond + stepSeconds / 2L) / stepSeconds) * stepSeconds
+    return Instant.ofEpochSecond(roundedEpoch)
+}
+
+private fun latestSleepLocalDate(samples: List<RelaySampleDto>): LocalDate? {
+    val today = LocalDate.now()
+    val localDate = samples
+        .asSequence()
+        .filter { sample -> sample.metric in sleepMetricNames }
+        .mapNotNull { sample -> sample.localDate?.let { runCatching { LocalDate.parse(it) }.getOrNull() } }
+        .maxOrNull()
+    if (localDate != null) {
+        return localDate.coerceAtMost(today)
+    }
+
+    return latestSampleInstant(samples, "sleep_summary", "sleep_stage")
+        ?.atZone(ZoneId.systemDefault())
+        ?.toLocalDate()
+        ?.coerceAtMost(today)
+}
+
+private fun RelaySampleDto.stringValue(): String? =
+    (value as? RelaySampleValue.StringValue)?.value
+
+private fun RelaySampleDto.stageMinutesFromRawHex(): Int? =
+    rawHex
+        ?.takeIf { it.length >= 4 }
+        ?.substring(2, 4)
+        ?.toIntOrNull(16)
+        ?.takeIf { it > 0 }
+
+private fun latestSampleInstant(
+    samples: List<RelaySampleDto>,
+    vararg metrics: String,
+): Instant? =
+    samples
+        .filter { sample -> sample.metric in metrics }
+        .mapNotNull { sample -> sample.timestampInstantOrNull() }
+        .maxOrNull()
+
+private fun RelaySampleDto.timestampInstantOrNull(): Instant? =
+    runCatching { Instant.parse(timestamp) }.getOrNull()
+
+private val sleepMetricNames = setOf(
+    "sleep_summary",
+    "sleep_stage",
+    "sleep_asleep",
+    "sleep_awake",
+    "sleep_light",
+    "sleep_deep",
+    "sleep_rem",
+)
+
+private fun sleepStageColor(stage: String): Color =
+    when (stage) {
+        "awake" -> SleepAwakeColor
+        "rem" -> SleepRemColor
+        "light" -> SleepLightColor
+        "deep" -> SleepDeepColor
+        else -> AppGreen
+    }
+
 private fun RelaySettings.isReadyForUpload(): Boolean =
     homeAssistantUrl.trim().startsWith("https://", ignoreCase = true) &&
         relayToken.trim().startsWith("fitorb_relay_") &&
@@ -1365,4 +2869,11 @@ private fun RelaySettings.isReadyForUpload(): Boolean =
         ringId.trim().isNotEmpty()
 
 private fun compactRingId(ringId: String): String =
-    ringId.ifBlank { "Ring nicht gesetzt" }
+    ringId.trim()
+
+private fun countProgress(count: Int?): Float =
+    when {
+        count == null -> 0.18f
+        count <= 0 -> 0.24f
+        else -> (0.35f + (count.coerceAtMost(10) / 10f) * 0.55f).coerceAtMost(0.9f)
+    }

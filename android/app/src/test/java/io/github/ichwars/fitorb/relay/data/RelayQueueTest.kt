@@ -101,13 +101,55 @@ class RelayQueueTest {
         )
     }
 
+    @Test
+    fun latestSamplesForRingIncludesDeliveredAndExcludesRejectedOrOtherRings() = runTest {
+        dao.insertQueued(
+            sample(
+                sampleId = "sample-old-heart",
+                metric = "heart_rate",
+                timestamp = "2026-07-03T09:55:00Z",
+            )
+        )
+        dao.insertQueued(
+            sample(
+                sampleId = "sample-new-battery",
+                metric = "battery",
+                timestamp = "2026-07-03T10:00:00Z",
+            )
+        )
+        dao.insertQueued(
+            sample(
+                sampleId = "sample-rejected",
+                metric = "stress",
+                timestamp = "2026-07-03T10:05:00Z",
+            )
+        )
+        dao.insertQueued(
+            sample(
+                sampleId = "sample-other-ring",
+                metric = "steps",
+                timestamp = "2026-07-03T10:10:00Z",
+                ringId = "11:22:33:44:55:66",
+            )
+        )
+
+        dao.markDelivered(listOf("sample-old-heart", "sample-new-battery"))
+        dao.markRejected("sample-rejected", "invalid_metric")
+
+        assertEquals(
+            listOf("sample-new-battery", "sample-old-heart"),
+            dao.latestSamplesForRing("AA:BB:CC:DD:EE:FF", limit = 10).map { it.sampleId },
+        )
+    }
+
     private fun sample(
         sampleId: String,
         metric: String,
         timestamp: String,
+        ringId: String = "AA:BB:CC:DD:EE:FF",
     ) = RelaySampleEntity(
         sampleId = sampleId,
-        ringId = "AA:BB:CC:DD:EE:FF",
+        ringId = ringId,
         metric = metric,
         timestamp = timestamp,
         valueJson = "72",

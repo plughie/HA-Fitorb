@@ -54,12 +54,16 @@ Home Assistant recorder state rows. Long-term statistics publishing will be
 added after the packet timestamps and units are confirmed with real hardware
 logs.
 
-## Mobile Android Relay
+## Fitorb Mobile Relay for Android
 
-The optional Android relay app is designed for multi-day travel where the ring
-is not near Home Assistant Bluetooth. The app reads the ring on a configurable
-schedule, stores samples locally, and uploads batches to Home Assistant over
-your own HTTPS endpoint at `/api/fitorb/relay/v1/samples`.
+**Fitorb Mobile Relay** is the optional Android companion app for multi-day
+travel where the ring is not near Home Assistant Bluetooth. The app reads the
+ring on a configurable schedule, stores samples locally, and uploads batches to
+Home Assistant over your own HTTPS endpoint at `/api/fitorb/relay/v1/samples`.
+
+The Android app focuses on reliable mobile capture and relay upload. It shows
+real ring values, including activity and sleep-stage views, but Home Assistant
+remains the long-term history target.
 
 Use the `fitorb.create_relay_token` service to create a relay-scoped token for
 one Android device. Store that token in the relay app. The token is only valid

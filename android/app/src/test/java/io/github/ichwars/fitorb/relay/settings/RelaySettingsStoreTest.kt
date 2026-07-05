@@ -51,7 +51,9 @@ class RelaySettingsStoreTest {
                 relayToken = " fitorb_relay_secret ",
                 relayId = " pixel-8 ",
                 ringId = " AA:BB:CC:DD:EE:FF ",
+                ringName = " Mein Ring ",
                 syncIntervalMinutes = 15,
+                stepGoal = 12_500,
             )
         )
 
@@ -61,7 +63,9 @@ class RelaySettingsStoreTest {
                 relayToken = "fitorb_relay_secret",
                 relayId = "pixel-8",
                 ringId = "AA:BB:CC:DD:EE:FF",
+                ringName = "Mein Ring",
                 syncIntervalMinutes = 15,
+                stepGoal = 12_500,
             ),
             store.load(),
         )
@@ -78,9 +82,11 @@ class RelaySettingsStoreTest {
                 relayId = "pixel-8",
                 ringId = "AA:BB:CC:DD:EE:FF",
                 syncIntervalMinutes = 90,
+                stepGoal = 500_000,
             )
         )
 
         assertEquals(MAX_SYNC_INTERVAL_MINUTES, store.load().syncIntervalMinutes)
+        assertEquals(MAX_STEP_GOAL_STEPS, store.load().stepGoal)
     }
 }

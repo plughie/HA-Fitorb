@@ -1,76 +1,113 @@
 package io.github.ichwars.fitorb.relay
 
+import android.Manifest
+import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.compose.setContent
-import io.github.ichwars.fitorb.relay.data.RelayBatchDto
-import io.github.ichwars.fitorb.relay.data.RelaySampleDto
-import io.github.ichwars.fitorb.relay.data.RelaySampleValue
-import io.github.ichwars.fitorb.relay.network.FitorbRelayApi
+import androidx.core.view.WindowInsetsControllerCompat
+import io.github.ichwars.fitorb.relay.ble.AndroidFitorbBleCollector
+import io.github.ichwars.fitorb.relay.data.RelayDatabase
+import io.github.ichwars.fitorb.relay.data.toDto
 import io.github.ichwars.fitorb.relay.settings.RelaySettings
 import io.github.ichwars.fitorb.relay.settings.RelaySettingsStore
+import io.github.ichwars.fitorb.relay.sync.RelaySyncRunner
+import io.github.ichwars.fitorb.relay.sync.RelaySyncScheduler
+import io.github.ichwars.fitorb.relay.sync.fitorbRelayUploader
 import io.github.ichwars.fitorb.relay.ui.FitorbRelayApp
-import java.time.Instant
-import java.util.Locale
-
-private const val APP_VERSION = "0.1.0"
 
 class MainActivity : ComponentActivity() {
+    private val permissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions(),
+    ) {
+        // The UI reports missing permissions through the next manual or scheduled sync attempt.
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        configureSystemBars()
+        requestRelayPermissions()
         val store = RelaySettingsStore(this)
+        val database = RelayDatabase.open(this)
         val defaultRelayId = defaultRelayId()
         val initialSettings = store.load().withDefaultRelayId(defaultRelayId)
+        if (initialSettings.isReadyForRelay()) {
+            RelaySyncScheduler.ensureNext(this, initialSettings.syncIntervalMinutes)
+        }
 
         setContent {
             FitorbRelayApp(
                 initialSettings = initialSettings,
                 defaultRelayId = defaultRelayId,
-                onSave = store::save,
+                appVersion = FITORB_APP_VERSION,
+                onSave = { settings ->
+                    val normalized = settings.withDefaultRelayId(defaultRelayId)
+                    store.save(normalized)
+                    if (normalized.isReadyForRelay()) {
+                        RelaySyncScheduler.replaceNext(this, normalized.syncIntervalMinutes)
+                    }
+                },
                 onUpload = { settings ->
-                    FitorbRelayApi(settings.homeAssistantUrl)
-                        .upload(createManualBatch(settings), settings.relayToken)
+                    val normalized = settings.withDefaultRelayId(defaultRelayId)
+                    store.save(normalized)
+                    RelaySyncRunner(
+                        dao = database.relaySampleDao(),
+                        collector = AndroidFitorbBleCollector(this),
+                        uploader = fitorbRelayUploader(normalized.homeAssistantUrl),
+                        appVersion = FITORB_APP_VERSION,
+                    ).run(normalized).also {
+                        RelaySyncScheduler.replaceNext(this, normalized.syncIntervalMinutes)
+                    }
+                },
+                onLoadSamples = { settings ->
+                    val ringId = settings.ringId.trim()
+                    if (ringId.isBlank()) {
+                        emptyList()
+                    } else {
+                        database.relaySampleDao()
+                            .latestSamplesForRing(ringId, limit = 200)
+                            .map { it.toDto() }
+                    }
                 },
             )
         }
+    }
+
+    private fun requestRelayPermissions() {
+        val permissions = buildList {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                add(Manifest.permission.BLUETOOTH_SCAN)
+                add(Manifest.permission.BLUETOOTH_CONNECT)
+            } else {
+                add(Manifest.permission.ACCESS_FINE_LOCATION)
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                add(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
+        if (permissions.isNotEmpty()) {
+            permissionLauncher.launch(permissions.toTypedArray())
+        }
+    }
+}
+
+private fun ComponentActivity.configureSystemBars() {
+    val barColor = Color.parseColor("#040707")
+    window.statusBarColor = barColor
+    window.navigationBarColor = barColor
+    WindowInsetsControllerCompat(window, window.decorView).apply {
+        isAppearanceLightStatusBars = false
+        isAppearanceLightNavigationBars = false
     }
 }
 
 private fun RelaySettings.withDefaultRelayId(defaultRelayId: String): RelaySettings =
     if (relayId.isBlank()) copy(relayId = defaultRelayId) else this
 
-private fun defaultRelayId(): String = "android-${Build.MODEL}".trim()
-
-private fun createManualBatch(settings: RelaySettings): RelayBatchDto {
-    val now = Instant.now()
-    val ringId = settings.ringId.trim()
-    val relayId = settings.relayId.trim().ifBlank { defaultRelayId() }
-    return RelayBatchDto(
-        relayId = relayId,
-        ringId = ringId,
-        appVersion = APP_VERSION,
-        protocolVersion = 1,
-        sentAt = now.toString(),
-        samples = listOf(
-            RelaySampleDto(
-                sampleId = "${sampleIdPrefix(relayId)}-manual-${now.toEpochMilli()}",
-                ringId = ringId,
-                metric = "heart_rate",
-                timestamp = now.toString(),
-                value = RelaySampleValue.IntValue(72),
-                unit = "bpm",
-                capturedAt = now.toString(),
-            ),
-        ),
-        backlog = 0,
-    )
-}
-
-private fun sampleIdPrefix(relayId: String): String =
-    relayId
-        .lowercase(Locale.US)
-        .replace(Regex("[^a-z0-9._-]"), "-")
-        .trim('-')
-        .ifBlank { "android-relay" }
-        .take(48)
+private fun RelaySettings.isReadyForRelay(): Boolean =
+    homeAssistantUrl.isNotBlank() &&
+        relayToken.isNotBlank() &&
+        relayId.isNotBlank() &&
+        ringId.isNotBlank()

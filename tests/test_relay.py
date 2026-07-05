@@ -56,6 +56,27 @@ def test_parse_relay_batch_normalizes_timestamps_and_metric() -> None:
     assert batch.samples[0].local_date == date(2026, 7, 3)
 
 
+def test_parse_relay_batch_accepts_sleep_phase_metrics() -> None:
+    payload = _payload()
+    sample = dict(payload["samples"][0])
+    sample.update(
+        {
+            "sample_id": "sample-sleep-light",
+            "metric": "sleep_light",
+            "timestamp": "2026-07-03T06:30:00Z",
+            "value": 220,
+            "unit": "min",
+        }
+    )
+    payload["samples"] = [sample]
+
+    batch = parse_relay_batch(payload, max_samples=10)
+
+    assert batch.samples[0].metric is RelayMetric.SLEEP_LIGHT
+    assert batch.samples[0].value == 220
+    assert batch.samples[0].unit == "min"
+
+
 def test_parse_relay_batch_rejects_oversized_batches() -> None:
     payload = _payload()
     payload["samples"] = payload["samples"] * 2

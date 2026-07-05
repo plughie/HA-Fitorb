@@ -5,7 +5,7 @@ import io.github.ichwars.fitorb.relay.data.RelaySampleDto
 /**
  * Boundary for BLE collection. A real scanner/connector should implement this interface later.
  */
-interface FitorbBleCollector {
+fun interface FitorbBleCollector {
     suspend fun collectOnce(ringId: String): List<RelaySampleDto>
 }
 

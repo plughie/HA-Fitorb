@@ -23,6 +23,11 @@ class RelayMetric(StrEnum):
     STRESS = "stress"
     SLEEP_STAGE = "sleep_stage"
     SLEEP_SUMMARY = "sleep_summary"
+    SLEEP_ASLEEP = "sleep_asleep"
+    SLEEP_AWAKE = "sleep_awake"
+    SLEEP_LIGHT = "sleep_light"
+    SLEEP_DEEP = "sleep_deep"
+    SLEEP_REM = "sleep_rem"
     BATTERY = "battery"
     CHARGING = "charging"
 

@@ -1,3 +1,4 @@
+import com.android.build.gradle.internal.api.BaseVariantOutputImpl
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
@@ -16,8 +17,8 @@ android {
         applicationId = "io.github.ichwars.fitorb.relay"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 9
+        versionName = "0.1.8"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -32,7 +33,17 @@ android {
 
     testOptions {
         unitTests.all {
-            it.maxHeapSize = "256m"
+            it.maxHeapSize = "128m"
+            it.maxParallelForks = 1
+        }
+    }
+
+    applicationVariants.all {
+        val variantName = name
+        val appVersion = versionName ?: "dev"
+        outputs.all {
+            (this as BaseVariantOutputImpl).outputFileName =
+                "Fitorb-Mobile-Relay-$appVersion-$variantName.apk"
         }
     }
 }
