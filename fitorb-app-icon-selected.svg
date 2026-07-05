@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title">
+  <title>Fitorb Icon Vorschlag 04 - Heart Ring</title>
+  <defs>
+    <linearGradient id="bg" x1="96" y1="126" x2="890" y2="936" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FB7185"/>
+      <stop offset="0.55" stop-color="#A855F7"/>
+      <stop offset="1" stop-color="#1D4ED8"/>
+    </linearGradient>
+    <linearGradient id="ring" x1="288" y1="252" x2="760" y2="788" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#FFE4E6"/>
+    </linearGradient>
+  </defs>
+  <rect x="64" y="64" width="896" height="896" rx="220" fill="url(#bg)"/>
+  <circle cx="512" cy="512" r="310" fill="#FFFFFF" opacity="0.09"/>
+  <circle cx="512" cy="512" r="244" stroke="url(#ring)" stroke-width="70"/>
+  <path d="M512 682C512 682 334 582 334 456C334 387 386 340 449 340C488 340 519 361 536 392C553 361 584 340 623 340C686 340 738 387 738 456C738 582 560 682 512 682Z" fill="#FFFFFF"/>
+  <path d="M363 515H444L475 461L525 578L571 492L604 515H687" stroke="#FB7185" stroke-width="34" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
