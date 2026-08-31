@@ -1,0 +1,50 @@
+# Fitorb Mobile Relay Android app
+
+## Build-time defaults
+
+The app can prefill its first-run connection settings from environment variables
+at build time. Defaults are intentionally empty so builds do not contain a
+developer's server address, ring identifier, or credentials.
+
+| Variable | Unset fallback |
+| --- | --- |
+| `FITORB_DEFAULT_HOME_ASSISTANT_URL` | Empty string |
+| `FITORB_DEFAULT_RING_ID` | Empty string |
+| `FITORB_DEFAULT_RELAY_TOKEN` | Empty string |
+| `FITORB_ALLOW_CLEARTEXT_HTTP` | `false` |
+
+These values are compiled into the app. In particular, a relay token included
+this way can be extracted from the APK, so use a relay-scoped token and do not
+commit it to this repository.
+
+HTTPS is required by default. For a trusted local network where Home Assistant
+is available only over plain HTTP, set `FITORB_ALLOW_CLEARTEXT_HTTP=true` while
+building. This opt-in is compiled into that APK and enables Android cleartext
+traffic as well as the app's HTTP URL validation.
+
+For a local debug build, set `FITORB_DEFAULT_RELAY_TOKEN` in your shell, adjust
+the non-secret defaults in `build-with-defaults.example.sh` if needed, and run
+the script. Do not put a real token in the script. The debug APK is written under
+`app/build/outputs/apk/debug/`.
+
+Without build-time overrides, run:
+
+```sh
+./gradlew assembleDebug
+```
+
+## Ring collection behavior
+
+The relay connects only for a bounded collection cycle. It reads battery,
+activity, heart-rate history, live SpO2 and stress, and cached sleep history,
+then disconnects before uploading the queued batch.
+
+Live SpO2 and stress measurements use the COLMI start, continue, and stop
+sequence. The stop command is sent after a value, timeout, or error so the
+optical sensor cannot be left active by an incomplete measurement.
+
+Sleep detection is automatic on compatible rings. No bedtime action is needed
+in the app. After the ring closes a sleep session, the next sync retrieves its
+summary and awake, light, deep, and REM durations. Activity, heart rate, SpO2,
+stress, and a complete staged sleep session have been validated with a COLMI
+R12.

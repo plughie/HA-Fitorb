@@ -62,6 +62,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import io.github.ichwars.fitorb.relay.BuildConfig
 import io.github.ichwars.fitorb.relay.R
 import io.github.ichwars.fitorb.relay.data.RelaySampleDto
 import io.github.ichwars.fitorb.relay.data.RelaySampleValue
@@ -81,6 +82,7 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlin.math.roundToInt
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
 private val AppBlack = Color(0xFF040707)
@@ -161,14 +163,14 @@ fun FitorbRelayApp(
         mutableStateOf(if (initialSettings.isReadyForUpload()) 2 else 0)
     }
     var activeTab by rememberSaveable { mutableStateOf(RelayTab.Home.key) }
-    var uploadState by rememberSaveable { mutableStateOf("ready") }
+    var uploadState by remember { mutableStateOf("ready") }
     var uploadError by rememberSaveable { mutableStateOf("") }
     var acceptedCount by rememberSaveable { mutableStateOf<Int?>(null) }
     var duplicateCount by rememberSaveable { mutableStateOf<Int?>(null) }
     var rejectedCount by rememberSaveable { mutableStateOf<Int?>(null) }
     var hasUploaded by rememberSaveable { mutableStateOf(false) }
     var mobileRelayActive by rememberSaveable { mutableStateOf(false) }
-    var uploading by rememberSaveable { mutableStateOf(false) }
+    var uploading by remember { mutableStateOf(false) }
     var latestRingSamples by remember { mutableStateOf<List<RelaySampleDto>>(emptyList()) }
     val scope = rememberCoroutineScope()
 
@@ -206,6 +208,12 @@ fun FitorbRelayApp(
                 mobileRelayActive = false
                 uploadState = "error"
             } catch (exception: IllegalArgumentException) {
+                uploadError = exception.message.orEmpty()
+                mobileRelayActive = false
+                uploadState = "error"
+            } catch (exception: CancellationException) {
+                throw exception
+            } catch (exception: Exception) {
                 uploadError = exception.message.orEmpty()
                 mobileRelayActive = false
                 uploadState = "error"
@@ -2863,7 +2871,9 @@ private fun sleepStageColor(stage: String): Color =
     }
 
 private fun RelaySettings.isReadyForUpload(): Boolean =
-    homeAssistantUrl.trim().startsWith("https://", ignoreCase = true) &&
+    (homeAssistantUrl.trim().startsWith("https://", ignoreCase = true) ||
+        (BuildConfig.ALLOW_CLEARTEXT_HTTP &&
+            homeAssistantUrl.trim().startsWith("http://", ignoreCase = true))) &&
         relayToken.trim().startsWith("fitorb_relay_") &&
         relayId.trim().isNotEmpty() &&
         ringId.trim().isNotEmpty()

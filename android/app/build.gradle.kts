@@ -1,6 +1,15 @@
 import com.android.build.gradle.internal.api.BaseVariantOutputImpl
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
+fun String.asBuildConfigString(): String =
+    "\"${replace("\\", "\\\\").replace("\"", "\\\"")}\""
+
+fun envDefault(name: String, fallback: String): String =
+    providers.environmentVariable(name).orElse(fallback).get()
+
+fun envFlag(name: String): Boolean =
+    providers.environmentVariable(name).orElse("false").get().toBooleanStrictOrNull() ?: false
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -14,15 +23,36 @@ android {
     compileSdk = 35
 
     defaultConfig {
+        val allowCleartextHttp = envFlag("FITORB_ALLOW_CLEARTEXT_HTTP")
         applicationId = "io.github.ichwars.fitorb.relay"
         minSdk = 26
         targetSdk = 35
         versionCode = 9
         versionName = "0.1.8"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        buildConfigField(
+            "String",
+            "DEFAULT_HOME_ASSISTANT_URL",
+            envDefault("FITORB_DEFAULT_HOME_ASSISTANT_URL", "")
+                .asBuildConfigString(),
+        )
+        buildConfigField(
+            "String",
+            "DEFAULT_RELAY_TOKEN",
+            envDefault("FITORB_DEFAULT_RELAY_TOKEN", "").asBuildConfigString(),
+        )
+        buildConfigField(
+            "String",
+            "DEFAULT_RING_ID",
+            envDefault("FITORB_DEFAULT_RING_ID", "")
+                .asBuildConfigString(),
+        )
+        buildConfigField("boolean", "ALLOW_CLEARTEXT_HTTP", allowCleartextHttp.toString())
+        manifestPlaceholders["usesCleartextTraffic"] = allowCleartextHttp.toString()
     }
 
     buildFeatures {
+        buildConfig = true
         compose = true
     }
 

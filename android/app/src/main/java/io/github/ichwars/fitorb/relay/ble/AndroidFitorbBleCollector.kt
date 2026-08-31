@@ -16,14 +16,18 @@ import android.bluetooth.le.ScanResult
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
+import android.util.Log
 import androidx.core.content.ContextCompat
 import io.github.ichwars.fitorb.relay.data.RelaySampleDto
+import io.github.ichwars.fitorb.relay.data.RelaySampleValue
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
+import java.util.Locale
 import java.util.UUID
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.withTimeoutOrNull
 
@@ -34,6 +38,7 @@ private val UART_NOTIFY_UUID: UUID = UUID.fromString(FitorbHistoryProtocol.NORDI
 private val BIG_DATA_SERVICE_UUID: UUID = UUID.fromString(FitorbHistoryProtocol.COLMI_BIG_DATA_SERVICE_UUID)
 private val BIG_DATA_WRITE_UUID: UUID = UUID.fromString(FitorbHistoryProtocol.COLMI_BIG_DATA_WRITE_UUID)
 private val BIG_DATA_NOTIFY_UUID: UUID = UUID.fromString(FitorbHistoryProtocol.COLMI_BIG_DATA_NOTIFY_UUID)
+private const val TAG = "FitorbBleCollector"
 
 class FitorbBleCollectionException(
     message: String,
@@ -73,8 +78,9 @@ class AndroidFitorbBleCollector(
     @SuppressLint("MissingPermission")
     private suspend fun findDevice(adapter: BluetoothAdapter, ringId: String): BluetoothDevice {
         ensureConnectPermission()
-        if (BluetoothAdapter.checkBluetoothAddress(ringId)) {
-            return adapter.getRemoteDevice(ringId)
+        val normalizedAddress = ringId.uppercase(Locale.US)
+        if (BluetoothAdapter.checkBluetoothAddress(normalizedAddress)) {
+            return adapter.getRemoteDevice(normalizedAddress)
         }
         ensureScanPermission()
         val scanner = adapter.bluetoothLeScanner
@@ -226,6 +232,16 @@ private class FitorbGattSession(
         readBattery()?.let { samples += it }
         samples += readActivityHistory()
         samples += readHeartRateHistory()
+        readHealthMeasurement(
+            readingType = 0x03,
+            metric = "spo2",
+            unit = "%",
+        ) { it as? ParsedRingPacket.Spo2 }?.let { samples += it }
+        readHealthMeasurement(
+            readingType = 0x08,
+            metric = "stress",
+            unit = null,
+        ) { it as? ParsedRingPacket.Stress }?.let { samples += it }
         samples += readSleepHistory()
         return samples
     }
@@ -286,6 +302,52 @@ private class FitorbGattSession(
         } ?: parser.finishPartial()
     }
 
+    private suspend fun <T : ParsedRingPacket> readHealthMeasurement(
+        readingType: Int,
+        metric: String,
+        unit: String?,
+        parse: (ParsedRingPacket) -> T?,
+    ): RingCollectedSample? {
+        require(readingType in 0..0xff) { "readingType must fit in one byte" }
+        val typeHex = "%02x".format(readingType)
+        try {
+            writeUart(FitorbProtocol.buildCommand("69${typeHex}01"))
+            delay(500)
+            writeUart(FitorbProtocol.buildCommand("69${typeHex}03"))
+            return withTimeoutOrNull(timeoutMillis * 5) {
+                while (true) {
+                    val rawPacket = uartNotifications.receive()
+                    Log.d(TAG, "$metric notification: ${rawPacket.toHexString()}")
+                    val packet = FitorbProtocol.parseNotification(rawPacket)
+                    val health = packet?.let(parse) ?: continue
+                    val value = when (health) {
+                        is ParsedRingPacket.Spo2 -> health.value
+                        is ParsedRingPacket.Stress -> health.value
+                        else -> null
+                    }
+                    if (value != null) {
+                        return@withTimeoutOrNull RingCollectedSample(
+                            metric = metric,
+                            timestamp = Instant.now(),
+                            value = RelaySampleValue.IntValue(value),
+                            unit = unit,
+                            localDate = LocalDate.now(ZoneOffset.UTC).toString(),
+                        )
+                    }
+                }
+                null
+            }.also { sample ->
+                if (sample == null) Log.w(TAG, "No $metric value returned by ring")
+            }
+        } finally {
+            try {
+                writeUart(FitorbProtocol.buildCommand("6a${typeHex}0000"))
+            } catch (error: Exception) {
+                Log.w(TAG, "Unable to stop $metric measurement", error)
+            }
+        }
+    }
+
     private suspend fun readSleepHistory(): List<RingCollectedSample> {
         val write = bigDataWrite ?: return emptyList()
         if (bigDataNotify == null) return emptyList()
@@ -293,14 +355,23 @@ private class FitorbGattSession(
         val parser = BigDataFrameParser()
         return withTimeoutOrNull(timeoutMillis * 2) {
             while (true) {
-                val frames = parser.consume(bigDataNotifications.receive())
+                val chunk = bigDataNotifications.receive()
+                Log.d(TAG, "Sleep big-data chunk (${chunk.size} bytes): ${chunk.toHexString()}")
+                val frames = parser.consume(chunk)
                 val frame = frames.firstOrNull { it.dataId == FitorbHistoryProtocol.BIG_DATA_SLEEP_ID }
                 if (frame != null) {
-                    return@withTimeoutOrNull FitorbHistoryProtocol.parseSleepPayload(frame.payload).samples
+                    val samples = FitorbHistoryProtocol.parseSleepPayload(frame.payload).samples
+                    Log.d(
+                        TAG,
+                        "Sleep frame payload=${frame.payload.size} bytes, samples=${samples.size}",
+                    )
+                    return@withTimeoutOrNull samples
                 }
             }
             emptyList()
-        } ?: emptyList()
+        } ?: emptyList<RingCollectedSample>().also {
+            Log.w(TAG, "Timed out waiting for R12 sleep history")
+        }
     }
 
     private suspend fun readUartParsed(
@@ -396,4 +467,8 @@ private class FitorbGattSession(
 
     private fun requireGatt(): BluetoothGatt =
         gatt ?: throw FitorbBleCollectionException("GATT connection unavailable")
+}
+
+private fun ByteArray.toHexString(): String = joinToString(separator = "") { byte ->
+    "%02x".format(byte.toInt() and 0xff)
 }

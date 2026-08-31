@@ -1,6 +1,7 @@
 package io.github.ichwars.fitorb.relay.settings
 
 import android.content.Context
+import io.github.ichwars.fitorb.relay.BuildConfig
 
 private const val PREFERENCES_NAME = "fitorb_relay_settings"
 private const val KEY_HOME_ASSISTANT_URL = "home_assistant_url"
@@ -11,6 +12,10 @@ private const val KEY_RING_NAME = "ring_name"
 private const val KEY_SYNC_INTERVAL_MINUTES = "sync_interval_minutes"
 private const val KEY_STEP_GOAL = "step_goal"
 
+val DEFAULT_HOME_ASSISTANT_URL: String = BuildConfig.DEFAULT_HOME_ASSISTANT_URL
+val DEFAULT_RELAY_TOKEN: String = BuildConfig.DEFAULT_RELAY_TOKEN
+val DEFAULT_RING_ID: String = BuildConfig.DEFAULT_RING_ID
+
 class RelaySettingsStore(context: Context) {
     private val preferences = context.applicationContext.getSharedPreferences(
         PREFERENCES_NAME,
@@ -18,10 +23,13 @@ class RelaySettingsStore(context: Context) {
     )
 
     fun load(): RelaySettings = RelaySettings(
-        homeAssistantUrl = preferences.getString(KEY_HOME_ASSISTANT_URL, null).orEmpty(),
-        relayToken = preferences.getString(KEY_RELAY_TOKEN, null).orEmpty(),
+        homeAssistantUrl = preferences.getString(
+            KEY_HOME_ASSISTANT_URL,
+            DEFAULT_HOME_ASSISTANT_URL,
+        ).orEmpty(),
+        relayToken = preferences.getString(KEY_RELAY_TOKEN, DEFAULT_RELAY_TOKEN).orEmpty(),
         relayId = preferences.getString(KEY_RELAY_ID, null).orEmpty(),
-        ringId = preferences.getString(KEY_RING_ID, null).orEmpty(),
+        ringId = preferences.getString(KEY_RING_ID, DEFAULT_RING_ID).orEmpty(),
         ringName = preferences.getString(KEY_RING_NAME, null).orEmpty(),
         syncIntervalMinutes = preferences.getInt(
             KEY_SYNC_INTERVAL_MINUTES,

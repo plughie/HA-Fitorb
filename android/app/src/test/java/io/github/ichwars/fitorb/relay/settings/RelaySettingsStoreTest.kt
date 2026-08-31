@@ -31,10 +31,10 @@ class RelaySettingsStoreTest {
 
         assertEquals(
             RelaySettings(
-                homeAssistantUrl = "",
-                relayToken = "",
+                homeAssistantUrl = DEFAULT_HOME_ASSISTANT_URL,
+                relayToken = DEFAULT_RELAY_TOKEN,
                 relayId = "",
-                ringId = "",
+                ringId = DEFAULT_RING_ID,
                 syncIntervalMinutes = DEFAULT_SYNC_INTERVAL_MINUTES,
             ),
             store.load(),

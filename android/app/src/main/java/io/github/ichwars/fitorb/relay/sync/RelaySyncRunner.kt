@@ -1,5 +1,6 @@
 package io.github.ichwars.fitorb.relay.sync
 
+import io.github.ichwars.fitorb.relay.BuildConfig
 import io.github.ichwars.fitorb.relay.ble.FitorbBleCollector
 import io.github.ichwars.fitorb.relay.data.RelayAckDto
 import io.github.ichwars.fitorb.relay.data.RelayBatchDto
@@ -68,5 +69,5 @@ class RelaySyncRunner(
 
 fun fitorbRelayUploader(baseUrl: String): RelayUploader =
     RelayUploader { batch, token ->
-        FitorbRelayApi(baseUrl).upload(batch, token)
+        FitorbRelayApi(baseUrl, requireHttps = !BuildConfig.ALLOW_CLEARTEXT_HTTP).upload(batch, token)
     }
