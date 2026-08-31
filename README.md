@@ -61,9 +61,27 @@ travel where the ring is not near Home Assistant Bluetooth. The app reads the
 ring on a configurable schedule, stores samples locally, and uploads batches to
 Home Assistant over your own HTTPS endpoint at `/api/fitorb/relay/v1/samples`.
 
+Choose the connection behavior under **Settings → Devices & services → Fitorb
+→ Configure**:
+
+- **Direct Bluetooth** always polls the ring from Home Assistant.
+- **Mobile relay** accepts Android uploads without attempting direct BLE reads.
+- **Automatic fallback** uses recent relay uploads and resumes direct BLE polling
+  when the relay has been inactive for 30 minutes.
+
 The Android app focuses on reliable mobile capture and relay upload. It shows
 real ring values, including activity and sleep-stage views, but Home Assistant
 remains the long-term history target.
+
+Relay uploads are mapped onto the same Home Assistant entities used by direct
+Bluetooth reads. The latest accepted values are restored after a Home Assistant
+restart, including battery, activity, heart rate, SpO2, stress, and sleep
+summary/stage durations.
+
+Sleep detection happens automatically on compatible rings; no bedtime action is
+required in the relay app. After the ring closes a sleep session, the next sync
+retrieves the summary and awake, light, deep, and REM durations. This flow has
+been validated end to end with a COLMI R12.
 
 Use the `fitorb.create_relay_token` service to create a relay-scoped token for
 one Android device. Store that token in the relay app. The token is only valid
@@ -168,9 +186,11 @@ later poll reaches the ring again.
 
 ## Known Limits
 
-- The phone app may need to be disconnected while Home Assistant polls the ring.
-- Heart rate, SpO2, and stress may stay unknown until the live health command
-  format for this ring firmware is confirmed.
+- Another phone app may need to be disconnected while Home Assistant performs
+  direct Bluetooth polling. This does not apply when using **Mobile relay**
+  mode.
+- Direct-Bluetooth heart rate, SpO2, and stress remain best-effort because some
+  compatible firmware versions do not answer the known live health commands.
 - Calories and distance units should be verified against real ring data.
 - Unknown BLE packets are logged for analysis and ignored by Version 1.
 

@@ -100,6 +100,7 @@ class TestRelayHistoryStore(IsolatedAsyncioTestCase):
         assert store.relay_last_sample == datetime(2026, 7, 3, 9, 55, tzinfo=UTC)
         assert store.relay_app_version == "0.1.0"
         assert store.relay_backlog is None
+        assert store.relay_latest_values == {RelayMetric.HEART_RATE: 72}
         persisted = _FakeStore._saved["fitorb_history_entry-id"]
         assert persisted["relay"]["backlog"] is None
 

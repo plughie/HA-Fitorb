@@ -4,16 +4,19 @@ import re
 from typing import Any
 
 import voluptuous as vol
-
 from homeassistant import config_entries
 from homeassistant.components.bluetooth import BluetoothServiceInfoBleak
 from homeassistant.const import CONF_ADDRESS, CONF_NAME, CONF_SCAN_INTERVAL
 from homeassistant.data_entry_flow import FlowResult
+from homeassistant.helpers import selector
 
 from .const import (
+    CONF_CONNECTION_MODE,
     CONF_HEALTH_POLL_INTERVAL,
     CONF_HISTORY_LOOKBACK_DAYS,
     CONF_HISTORY_SYNC_INTERVAL,
+    CONNECTION_MODES,
+    DEFAULT_CONNECTION_MODE,
     DEFAULT_HEALTH_POLL_INTERVAL,
     DEFAULT_HISTORY_LOOKBACK_DAYS,
     DEFAULT_HISTORY_SYNC_INTERVAL,
@@ -33,8 +36,9 @@ def _is_valid_address(address: str) -> bool:
     return bool(_MAC_RE.match(_normalize_address(address)))
 
 
-def _default_options() -> dict[str, int]:
+def _default_options() -> dict[str, int | str]:
     return {
+        CONF_CONNECTION_MODE: DEFAULT_CONNECTION_MODE,
         CONF_SCAN_INTERVAL: int(DEFAULT_SUMMARY_POLL_INTERVAL.total_seconds() / 60),
         CONF_HEALTH_POLL_INTERVAL: int(
             DEFAULT_HEALTH_POLL_INTERVAL.total_seconds() / 60
@@ -149,6 +153,15 @@ class FitorbOptionsFlow(config_entries.OptionsFlow):
             step_id="init",
             data_schema=vol.Schema(
                 {
+                    vol.Required(
+                        CONF_CONNECTION_MODE,
+                        default=options[CONF_CONNECTION_MODE],
+                    ): selector.SelectSelector(
+                        selector.SelectSelectorConfig(
+                            options=list(CONNECTION_MODES),
+                            translation_key="connection_mode",
+                        )
+                    ),
                     vol.Required(
                         CONF_SCAN_INTERVAL,
                         default=options[CONF_SCAN_INTERVAL],

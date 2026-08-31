@@ -10,9 +10,13 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 
 from .bluetooth import FitorbBleClient, FitorbDeviceUnavailable
 from .const import (
+    CONF_CONNECTION_MODE,
     CONF_HEALTH_POLL_INTERVAL,
     CONF_HISTORY_LOOKBACK_DAYS,
     CONF_HISTORY_SYNC_INTERVAL,
+    CONNECTION_MODE_HYBRID,
+    CONNECTION_MODE_RELAY,
+    DEFAULT_CONNECTION_MODE,
     DEFAULT_HEALTH_POLL_INTERVAL,
     DEFAULT_HISTORY_LOOKBACK_DAYS,
     DEFAULT_HISTORY_SYNC_INTERVAL,
@@ -22,7 +26,7 @@ from .const import (
 )
 from .history_store import FitorbHistoryStore
 from .models import FitorbData, FitorbHistoryRequest
-from .relay import RelayAckResult, RelayBatch, RelayRejectedSample
+from .relay import RelayAckResult, RelayBatch, RelayMetric, RelayRejectedSample
 
 _LOGGER = logging.getLogger(__name__)
 _RELAY_RECENT_ACTIVITY_WINDOW = timedelta(minutes=30)
@@ -81,10 +85,16 @@ class FitorbDataUpdateCoordinator(DataUpdateCoordinator[FitorbData]):
 
     async def _async_update_data(self) -> FitorbData:
         """Fetch data from the ring."""
+        now = datetime.now(UTC)
+        if self._should_use_relay(now):
+            return self._apply_history_store_summary(
+                self.data or self.base_data,
+                now=now,
+            ).with_values(available=False, last_error=None)
+
         include_health = self._health_poll_is_due()
         try:
             base = self.data or self.base_data
-            now = datetime.now(UTC)
             history_request = (
                 self._build_history_request(now)
                 if self._history_sync_is_due(now)
@@ -164,11 +174,15 @@ class FitorbDataUpdateCoordinator(DataUpdateCoordinator[FitorbData]):
             )
 
         result = await self.history_store.async_record_relay_batch(batch, received_at)
+        relay_values = _latest_relay_sensor_values(
+            batch,
+            set(result.accepted) | set(result.duplicates),
+        )
         self.async_set_updated_data(
             self._apply_history_store_summary(
                 self.data or self.base_data,
                 now=received_at_utc,
-            )
+            ).with_values(**relay_values)
         )
         return result
 
@@ -196,6 +210,11 @@ class FitorbDataUpdateCoordinator(DataUpdateCoordinator[FitorbData]):
         )
         relay_app_version = getattr(self.history_store, "relay_app_version", None)
         relay_backlog = getattr(self.history_store, "relay_backlog", None)
+        relay_latest_values = getattr(
+            self.history_store,
+            "relay_latest_values",
+            {},
+        )
         has_history_summary = not (
             last_sync is None
             and last_status is None
@@ -256,7 +275,17 @@ class FitorbDataUpdateCoordinator(DataUpdateCoordinator[FitorbData]):
                     ),
                 }
             )
+            values.update(_relay_values_to_sensor_fields(relay_latest_values))
         return data.with_values(**values)
+
+    def _should_use_relay(self, now: datetime) -> bool:
+        """Return whether this refresh should avoid a direct BLE connection."""
+        mode = self.entry.options.get(CONF_CONNECTION_MODE, DEFAULT_CONNECTION_MODE)
+        if mode == CONNECTION_MODE_RELAY:
+            return True
+        if mode != CONNECTION_MODE_HYBRID:
+            return False
+        return _relay_upload_is_recent(self.history_store.relay_last_upload, now)
 
     def _history_sync_is_due(self, now: datetime) -> bool:
         """Return whether history sync should run on this update."""
@@ -305,6 +334,52 @@ def _relay_upload_is_recent(
 def _ring_ids_match(left: str, right: str) -> bool:
     """Return whether two ring identifiers refer to the same Bluetooth address."""
     return _normalized_ring_id(left) == _normalized_ring_id(right)
+
+
+_RELAY_SENSOR_FIELDS = {
+    RelayMetric.BATTERY: "battery_level",
+    RelayMetric.CHARGING: "is_charging",
+    RelayMetric.STEPS: "steps",
+    RelayMetric.CALORIES: "calories",
+    RelayMetric.DISTANCE: "distance",
+    RelayMetric.HEART_RATE: "heart_rate",
+    RelayMetric.SPO2: "spo2",
+    RelayMetric.STRESS: "stress",
+    RelayMetric.SLEEP_SUMMARY: "sleep_duration_minutes",
+    RelayMetric.SLEEP_ASLEEP: "sleep_asleep_minutes",
+    RelayMetric.SLEEP_AWAKE: "sleep_awake_minutes",
+    RelayMetric.SLEEP_LIGHT: "sleep_light_minutes",
+    RelayMetric.SLEEP_DEEP: "sleep_deep_minutes",
+    RelayMetric.SLEEP_REM: "sleep_rem_minutes",
+}
+
+
+def _latest_relay_sensor_values(
+    batch: RelayBatch,
+    included_sample_ids: set[str],
+) -> dict[str, object]:
+    """Map the newest relay sample for each metric to standard entity data."""
+    latest: dict[RelayMetric, tuple[datetime, object]] = {}
+    for sample in batch.samples:
+        if sample.sample_id not in included_sample_ids:
+            continue
+        current = latest.get(sample.metric)
+        if current is None or sample.timestamp >= current[0]:
+            latest[sample.metric] = (sample.timestamp, sample.value)
+    return _relay_values_to_sensor_fields(
+        {metric: value for metric, (_timestamp, value) in latest.items()}
+    )
+
+
+def _relay_values_to_sensor_fields(
+    values: dict[RelayMetric, object],
+) -> dict[str, object]:
+    """Map relay metric values to standard entity data fields."""
+    return {
+        field: values[metric]
+        for metric, field in _RELAY_SENSOR_FIELDS.items()
+        if metric in values
+    }
 
 
 def _normalized_ring_id(value: str) -> str:

@@ -118,6 +118,28 @@ class FitorbHistoryStore:
         """Return the last relay app backlog count."""
         return _parse_optional_nonnegative_int(self._relay_data().get("backlog"))
 
+    @property
+    def relay_latest_values(self) -> dict[RelayMetric, int | float | str | bool]:
+        """Return the newest persisted value for each relay metric."""
+        latest: dict[
+            RelayMetric,
+            tuple[datetime, int | float | str | bool],
+        ] = {}
+        samples = self._relay_data().get("samples")
+        if not isinstance(samples, dict):
+            return {}
+        for item in samples.values():
+            if not _is_valid_relay_sample_json(item):
+                continue
+            metric = RelayMetric(item["metric"])
+            timestamp = _parse_datetime(item.get("timestamp"))
+            if timestamp is None:
+                continue
+            current = latest.get(metric)
+            if current is None or timestamp >= current[0]:
+                latest[metric] = (timestamp, item["value"])
+        return {metric: value for metric, (_timestamp, value) in latest.items()}
+
     async def async_load(self) -> None:
         """Load store data from disk."""
         loaded = await self._store.async_load()

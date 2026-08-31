@@ -61,9 +61,19 @@
     "step": {
       "init": {
         "data": {
+          "connection_mode": "Connection mode",
           "history_lookback_days": "History lookback days",
           "history_sync_interval": "History sync interval"
         }
+      }
+    }
+  },
+  "selector": {
+    "connection_mode": {
+      "options": {
+        "direct": "Direct Bluetooth",
+        "relay": "Mobile relay",
+        "hybrid": "Automatic fallback"
       }
     }
   },

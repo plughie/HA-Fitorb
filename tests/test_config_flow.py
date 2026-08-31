@@ -4,13 +4,15 @@ from homeassistant import config_entries
 from homeassistant.components.bluetooth import BluetoothServiceInfoBleak
 from homeassistant.const import CONF_ADDRESS, CONF_NAME, CONF_SCAN_INTERVAL
 from homeassistant.core import HomeAssistant
-
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.fitorb.const import (
+    CONF_CONNECTION_MODE,
     CONF_HEALTH_POLL_INTERVAL,
     CONF_HISTORY_LOOKBACK_DAYS,
     CONF_HISTORY_SYNC_INTERVAL,
+    CONNECTION_MODE_DIRECT,
+    CONNECTION_MODE_RELAY,
     DOMAIN,
 )
 
@@ -46,6 +48,7 @@ async def test_manual_flow_creates_entry(hass) -> None:
         CONF_NAME: "Ring",
     }
     assert result["options"] == {
+        CONF_CONNECTION_MODE: CONNECTION_MODE_DIRECT,
         CONF_SCAN_INTERVAL: 5,
         CONF_HEALTH_POLL_INTERVAL: 15,
         CONF_HISTORY_LOOKBACK_DAYS: 7,
@@ -98,6 +101,7 @@ async def test_bluetooth_confirm_creates_entry(hass: HomeAssistant) -> None:
         CONF_NAME: "R06_ABCD",
     }
     assert result["options"] == {
+        CONF_CONNECTION_MODE: CONNECTION_MODE_DIRECT,
         CONF_SCAN_INTERVAL: 5,
         CONF_HEALTH_POLL_INTERVAL: 15,
         CONF_HISTORY_LOOKBACK_DAYS: 7,
@@ -142,6 +146,7 @@ async def test_options_flow_updates_history_settings(hass: HomeAssistant) -> Non
         title="Ring",
         data={CONF_ADDRESS: "AA:BB:CC:DD:EE:FF", CONF_NAME: "Ring"},
         options={
+            CONF_CONNECTION_MODE: CONNECTION_MODE_DIRECT,
             CONF_SCAN_INTERVAL: 5,
             CONF_HEALTH_POLL_INTERVAL: 15,
             CONF_HISTORY_LOOKBACK_DAYS: 7,
@@ -154,6 +159,7 @@ async def test_options_flow_updates_history_settings(hass: HomeAssistant) -> Non
     result = await hass.config_entries.options.async_configure(
         flow["flow_id"],
         user_input={
+            CONF_CONNECTION_MODE: CONNECTION_MODE_RELAY,
             CONF_SCAN_INTERVAL: 5,
             CONF_HEALTH_POLL_INTERVAL: 15,
             CONF_HISTORY_LOOKBACK_DAYS: 3,
@@ -162,5 +168,6 @@ async def test_options_flow_updates_history_settings(hass: HomeAssistant) -> Non
     )
 
     assert result["type"] is config_entries.FlowResultType.CREATE_ENTRY
+    assert result["data"][CONF_CONNECTION_MODE] == CONNECTION_MODE_RELAY
     assert result["data"][CONF_HISTORY_LOOKBACK_DAYS] == 3
     assert result["data"][CONF_HISTORY_SYNC_INTERVAL] == 120

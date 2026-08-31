@@ -457,6 +457,7 @@ class TestFitorbRelaySamplesView(IsolatedAsyncioTestCase):
         assert store.recorded_relay_batches == [(batch, received_at)]
         assert coordinator.data is not None
         assert coordinator.data.steps == 123
+        assert coordinator.data.heart_rate == 72
         assert coordinator.data.last_history_sync == store.last_sync
         assert coordinator.data.last_history_sample_count == 42
         assert coordinator.data.last_history_status == "success"

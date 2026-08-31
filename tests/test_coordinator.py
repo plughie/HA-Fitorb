@@ -6,7 +6,6 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
-
 from homeassistant.const import CONF_ADDRESS, CONF_NAME, CONF_SCAN_INTERVAL
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import UpdateFailed
@@ -21,6 +20,9 @@ from custom_components.fitorb.bluetooth import (
 from custom_components.fitorb.const import (
     CMD_NOTIFY_CHAR_UUID,
     CMD_WRITE_CHAR_UUID,
+    CONF_CONNECTION_MODE,
+    CONNECTION_MODE_HYBRID,
+    CONNECTION_MODE_RELAY,
     DEFAULT_SUMMARY_POLL_INTERVAL,
     DOMAIN,
     RAW_NOTIFY_CHAR_UUID,
@@ -145,6 +147,50 @@ async def test_coordinator_updates_snapshot(
     assert result.steps == 123
     assert result.last_successful_update is not None
     assert result.last_successful_update.tzinfo is UTC
+
+
+async def test_relay_mode_skips_direct_bluetooth(
+    hass: HomeAssistant, entry: MockConfigEntry
+) -> None:
+    entry.add_to_hass(hass)
+    hass.config_entries.async_update_entry(
+        entry,
+        options={CONF_CONNECTION_MODE: CONNECTION_MODE_RELAY},
+    )
+    client = FakeRingClient(err=AssertionError("BLE should not be called"))
+    coordinator = FitorbDataUpdateCoordinator(hass, entry, client)
+    coordinator.async_set_updated_data(
+        FitorbData(
+            address="AA:BB:CC:DD:EE:FF",
+            name="Ring",
+            steps=456,
+        )
+    )
+
+    result = await coordinator._async_update_data()
+
+    assert client.calls == 0
+    assert result.available is False
+    assert result.steps == 456
+
+
+async def test_hybrid_mode_skips_ble_while_relay_is_recent(
+    hass: HomeAssistant, entry: MockConfigEntry
+) -> None:
+    entry.add_to_hass(hass)
+    hass.config_entries.async_update_entry(
+        entry,
+        options={CONF_CONNECTION_MODE: CONNECTION_MODE_HYBRID},
+    )
+    client = FakeRingClient(err=AssertionError("BLE should not be called"))
+    store = FakeHistoryStore()
+    store.relay_last_upload = datetime.now(UTC)
+    coordinator = FitorbDataUpdateCoordinator(hass, entry, client, history_store=store)
+
+    result = await coordinator._async_update_data()
+
+    assert client.calls == 0
+    assert result.available is False
 
 
 async def test_coordinator_wraps_ble_errors(
