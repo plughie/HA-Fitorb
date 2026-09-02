@@ -15,6 +15,9 @@ targets:
     type: application
     platform: iOS
     sources: [FitorbRelay]
+    configFiles:
+      Debug: Config/Defaults.xcconfig
+      Release: Config/Defaults.xcconfig
     info:
       path: FitorbRelay/Info.plist
       properties:

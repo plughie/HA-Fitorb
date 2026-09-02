@@ -1,0 +1,3 @@
+// Project-safe defaults. Personal values and relay tokens belong in the
+// git-ignored LocalDefaults.xcconfig file next to this one.
+#include? "LocalDefaults.xcconfig"

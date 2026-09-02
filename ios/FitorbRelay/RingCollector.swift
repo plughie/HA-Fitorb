@@ -17,6 +17,10 @@ final class RingCollector: NSObject, @preconcurrency CBCentralManagerDelegate, @
     func scan() async throws -> [RingChoice] {
         try await waitUntil { self.central.state == .poweredOn }
         discovered = [:]
+        for peripheral in central.retrieveConnectedPeripherals(withServices: [RingProtocol.uartService, RingProtocol.dataService]) {
+            let name = peripheral.name ?? "Connected ring"
+            discovered[peripheral.identifier] = RingChoice(id: peripheral.identifier, name: name, rssi: 0)
+        }
         central.scanForPeripherals(withServices: nil, options: [CBCentralManagerScanOptionAllowDuplicatesKey: false])
         try await Task.sleep(for: .seconds(8)); central.stopScan()
         return discovered.values.sorted { $0.rssi > $1.rssi }
@@ -24,9 +28,9 @@ final class RingCollector: NSObject, @preconcurrency CBCentralManagerDelegate, @
 
     func centralManager(_ central: CBCentralManager, didDiscover peripheral: CBPeripheral,
                         advertisementData: [String: Any], rssi RSSI: NSNumber) {
-        let name = advertisementData[CBAdvertisementDataLocalNameKey] as? String ?? peripheral.name ?? "Unknown ring"
-        let upper = name.uppercased()
-        guard upper.contains("R12") || upper.range(of: #"R0[2-6]"#, options: .regularExpression) != nil else { return }
+        let advertisedName = advertisementData[CBAdvertisementDataLocalNameKey] as? String ?? peripheral.name
+        let suffix = peripheral.identifier.uuidString.prefix(4)
+        let name = advertisedName?.trimmingCharacters(in: .whitespacesAndNewlines).nonEmpty ?? "Unnamed Bluetooth device · \(suffix)"
         discovered[peripheral.identifier] = RingChoice(id: peripheral.identifier, name: name, rssi: RSSI.intValue)
     }
 
@@ -100,7 +104,16 @@ final class RingCollector: NSObject, @preconcurrency CBCentralManagerDelegate, @
 
     private func waitUntil(timeout: TimeInterval = 10, _ condition: @escaping () -> Bool) async throws {
         let deadline = Date().addingTimeInterval(timeout)
-        while !condition() { if Date() >= deadline { throw RelayError.message("Bluetooth timed out") }; try await Task.sleep(for: .milliseconds(100)) }
+        while !condition() {
+            switch central.state {
+            case .poweredOff: throw RelayError.message("Bluetooth is turned off")
+            case .unauthorized: throw RelayError.message("Bluetooth access is not allowed. Enable it in Settings → Privacy & Security → Bluetooth.")
+            case .unsupported: throw RelayError.message("Bluetooth Low Energy is not supported on this device")
+            default: break
+            }
+            if Date() >= deadline { throw RelayError.message("Bluetooth timed out") }
+            try await Task.sleep(for: .milliseconds(100))
+        }
     }
 
     func centralManager(_ central: CBCentralManager, didConnect peripheral: CBPeripheral) { peripheral.discoverServices(nil) }
@@ -123,4 +136,8 @@ final class RingCollector: NSObject, @preconcurrency CBCentralManagerDelegate, @
         if characteristic.uuid == RingProtocol.uartNotify { uartPackets.append(value) }
         if characteristic.uuid == RingProtocol.dataNotify { dataPackets.append(value) }
     }
+}
+
+private extension String {
+    var nonEmpty: String? { isEmpty ? nil : self }
 }

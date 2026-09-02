@@ -38,6 +38,7 @@
 		688FE3B5C28155EA91DAA76F /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		73CEFCF3AFE19AF0AD756432 /* FitorbRelayTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = FitorbRelayTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		7A620B6605E7B51CD9C835CD /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
+		7F28D8B22ED5CF06AE8C77A0 /* Defaults.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Defaults.xcconfig; sourceTree = "<group>"; };
 		A0F9219CCFD22C9C4F1C3799 /* RelayAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RelayAPI.swift; sourceTree = "<group>"; };
 		B8CEBC1704D23CA73790F869 /* RingProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RingProtocol.swift; sourceTree = "<group>"; };
 		DB23B1F27002671C4CA09D04 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
@@ -46,9 +47,18 @@
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
+		28E872F2E30C66E432FE1EC1 /* Config */ = {
+			isa = PBXGroup;
+			children = (
+				7F28D8B22ED5CF06AE8C77A0 /* Defaults.xcconfig */,
+			);
+			path = Config;
+			sourceTree = "<group>";
+		};
 		445ABCBC92F0298A04EA939A = {
 			isa = PBXGroup;
 			children = (
+				28E872F2E30C66E432FE1EC1 /* Config */,
 				519F52B9564AE6A4FBF7CBB8 /* FitorbRelay */,
 				6840934E94C35A91C2C7F794 /* FitorbRelayTests */,
 				D7E519547A48DB83DED8EBF9 /* Products */,
@@ -211,6 +221,7 @@
 /* Begin XCBuildConfiguration section */
 		44C4EA7ED4EE8E6F19832FB2 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 7F28D8B22ED5CF06AE8C77A0 /* Defaults.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
@@ -331,6 +342,7 @@
 		};
 		FB6E6A943DA80A803F3E78F0 /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 7F28D8B22ED5CF06AE8C77A0 /* Defaults.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";

@@ -16,6 +16,9 @@ struct ContentView: View {
             Form {
                 Section("Ring") {
                     Button("Scan for ring") { Task { await model.scan() } }
+                    Text("Nearby Bluetooth devices appear below. Choose your ring; the closest device usually has the strongest signal.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                     ForEach(model.rings) { ring in
                         Button { model.choose(ring) } label: {
                             HStack {

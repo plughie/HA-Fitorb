@@ -19,11 +19,7 @@ final class RelayViewModel: ObservableObject {
         status = "Scanning…"
         do {
             rings = try await collector.scan()
-            if rings.count == 1, let ring = rings.first {
-                choose(ring)
-            } else {
-                status = rings.isEmpty ? "No compatible ring found" : "Tap a ring below to select it"
-            }
+            status = rings.isEmpty ? "No Bluetooth devices found" : "Tap your ring below to select it"
         } catch {
             status = error.localizedDescription
         }

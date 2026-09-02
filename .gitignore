@@ -5,4 +5,5 @@ __pycache__/
 .DS_Store
 xcuserdata/
 *.xcuserstate
+ios/Config/LocalDefaults.xcconfig
 local-session-notes/2026-06-26-ha-fitorb-session.md
