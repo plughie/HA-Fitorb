@@ -72,6 +72,7 @@ import io.github.ichwars.fitorb.relay.settings.MAX_SYNC_INTERVAL_MINUTES
 import io.github.ichwars.fitorb.relay.settings.MIN_STEP_GOAL_STEPS
 import io.github.ichwars.fitorb.relay.settings.MIN_SYNC_INTERVAL_MINUTES
 import io.github.ichwars.fitorb.relay.settings.RelaySettings
+import io.github.ichwars.fitorb.relay.settings.RelaySendStatus
 import io.github.ichwars.fitorb.relay.settings.STEP_GOAL_INCREMENT_STEPS
 import io.github.ichwars.fitorb.relay.sync.RelaySyncResult
 import java.text.NumberFormat
@@ -83,6 +84,7 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlin.math.roundToInt
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 private val AppBlack = Color(0xFF040707)
@@ -135,6 +137,7 @@ fun FitorbRelayApp(
     onSave: (RelaySettings) -> Unit,
     onUpload: suspend (RelaySettings) -> RelaySyncResult,
     onLoadSamples: suspend (RelaySettings) -> List<RelaySampleDto>,
+    onLoadSendStatus: () -> RelaySendStatus?,
 ) {
     var homeAssistantUrl by rememberSaveable {
         mutableStateOf(initialSettings.homeAssistantUrl)
@@ -166,8 +169,10 @@ fun FitorbRelayApp(
     var uploadState by remember { mutableStateOf("ready") }
     var uploadError by rememberSaveable { mutableStateOf("") }
     var acceptedCount by rememberSaveable { mutableStateOf<Int?>(null) }
+    var sentCount by rememberSaveable { mutableStateOf<Int?>(null) }
     var duplicateCount by rememberSaveable { mutableStateOf<Int?>(null) }
     var rejectedCount by rememberSaveable { mutableStateOf<Int?>(null) }
+    var lastSendTimestamp by rememberSaveable { mutableStateOf(0L) }
     var hasUploaded by rememberSaveable { mutableStateOf(false) }
     var mobileRelayActive by rememberSaveable { mutableStateOf(false) }
     var uploading by remember { mutableStateOf(false) }
@@ -198,6 +203,7 @@ fun FitorbRelayApp(
                 val ack = result.ack
                 latestRingSamples = result.capturedSamples.ifEmpty { result.uploadedSamples }
                 acceptedCount = ack.accepted.size
+                sentCount = result.uploadedSamples.size
                 duplicateCount = ack.duplicates.size
                 rejectedCount = ack.rejected.size
                 mobileRelayActive = result.capturedSamples.isNotEmpty()
@@ -222,6 +228,22 @@ fun FitorbRelayApp(
             }
         }
     }
+    LaunchedEffect(setupStep) {
+        while (setupStep >= 2) {
+            onLoadSendStatus()?.takeIf { status ->
+                !uploading && status.timestampMillis > lastSendTimestamp
+            }?.let { status ->
+                sentCount = status.sent
+                acceptedCount = status.accepted
+                duplicateCount = status.duplicates
+                rejectedCount = status.rejected
+                lastSendTimestamp = status.timestampMillis
+                hasUploaded = true
+                uploadState = "ok"
+            }
+            delay(2_000)
+        }
+    }
 
     val settings = currentSettings()
     val ringSampleKey = settings.ringId.trim()
@@ -241,6 +263,7 @@ fun FitorbRelayApp(
         "sending" -> stringResource(R.string.status_sending)
         "ok" -> stringResource(
             R.string.status_ok,
+            sentCount ?: 0,
             acceptedCount ?: 0,
             duplicateCount ?: 0,
             rejectedCount ?: 0,

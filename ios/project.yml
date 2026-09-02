@@ -1,0 +1,49 @@
+name: FitorbRelay
+options:
+  bundleIdPrefix: io.github.ichwars
+  xcodeVersion: "27.0"
+settings:
+  base:
+    SWIFT_VERSION: 5.0
+    IPHONEOS_DEPLOYMENT_TARGET: 16.0
+    FITORB_DEFAULT_HOME_ASSISTANT_URL: ""
+    FITORB_DEFAULT_RELAY_TOKEN: ""
+    FITORB_DEFAULT_RELAY_ID: ""
+    FITORB_DEFAULT_RING_ID: ""
+targets:
+  FitorbRelay:
+    type: application
+    platform: iOS
+    sources: [FitorbRelay]
+    info:
+      path: FitorbRelay/Info.plist
+      properties:
+        CFBundleDisplayName: Fitorb Relay
+        NSBluetoothAlwaysUsageDescription: Fitorb Relay connects to your smart ring to collect health data.
+        NSAppTransportSecurity:
+          NSAllowsArbitraryLoads: true
+        FitorbDefaultHomeAssistantURL: $(FITORB_DEFAULT_HOME_ASSISTANT_URL)
+        FitorbDefaultRelayToken: $(FITORB_DEFAULT_RELAY_TOKEN)
+        FitorbDefaultRelayID: $(FITORB_DEFAULT_RELAY_ID)
+        FitorbDefaultRingID: $(FITORB_DEFAULT_RING_ID)
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.ichwars.fitorb.relay.ios
+        PRODUCT_NAME: FitorbRelay
+        TARGETED_DEVICE_FAMILY: 1
+        CODE_SIGN_STYLE: Automatic
+        DEVELOPMENT_TEAM: ""
+    scheme:
+      testTargets: [FitorbRelayTests]
+  FitorbRelayTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources: [FitorbRelayTests]
+    dependencies:
+      - target: FitorbRelay
+    settings:
+      base:
+        IPHONEOS_DEPLOYMENT_TARGET: 17.0

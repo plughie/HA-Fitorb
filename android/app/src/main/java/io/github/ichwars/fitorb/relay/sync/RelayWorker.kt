@@ -7,6 +7,7 @@ import io.github.ichwars.fitorb.relay.FITORB_APP_VERSION
 import io.github.ichwars.fitorb.relay.ble.AndroidFitorbBleCollector
 import io.github.ichwars.fitorb.relay.data.RelayDatabase
 import io.github.ichwars.fitorb.relay.settings.RelaySettingsStore
+import io.github.ichwars.fitorb.relay.settings.RelaySendStatus
 
 class RelayWorker(
     appContext: Context,
@@ -24,7 +25,17 @@ class RelayWorker(
                 collector = AndroidFitorbBleCollector(applicationContext),
                 uploader = fitorbRelayUploader(settings.homeAssistantUrl),
                 appVersion = FITORB_APP_VERSION,
-            ).run(settings)
+            ).run(settings).also { result ->
+                store.saveSendStatus(
+                    RelaySendStatus(
+                        timestampMillis = System.currentTimeMillis(),
+                        sent = result.uploadedSamples.size,
+                        accepted = result.ack.accepted.size,
+                        duplicates = result.ack.duplicates.size,
+                        rejected = result.ack.rejected.size,
+                    ),
+                )
+            }
             Result.success()
         } catch (_: IllegalArgumentException) {
             Result.failure()

@@ -5,14 +5,16 @@ import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
-import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
-import androidx.core.view.WindowInsetsControllerCompat
+import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import io.github.ichwars.fitorb.relay.ble.AndroidFitorbBleCollector
 import io.github.ichwars.fitorb.relay.data.RelayDatabase
 import io.github.ichwars.fitorb.relay.data.toDto
 import io.github.ichwars.fitorb.relay.settings.RelaySettings
 import io.github.ichwars.fitorb.relay.settings.RelaySettingsStore
+import io.github.ichwars.fitorb.relay.settings.RelaySendStatus
 import io.github.ichwars.fitorb.relay.sync.RelaySyncRunner
 import io.github.ichwars.fitorb.relay.sync.RelaySyncScheduler
 import io.github.ichwars.fitorb.relay.sync.fitorbRelayUploader
@@ -57,10 +59,12 @@ class MainActivity : ComponentActivity() {
                         collector = AndroidFitorbBleCollector(this),
                         uploader = fitorbRelayUploader(normalized.homeAssistantUrl),
                         appVersion = FITORB_APP_VERSION,
-                    ).run(normalized).also {
+                    ).run(normalized).also { result ->
+                        store.saveSendStatus(result.toSendStatus())
                         RelaySyncScheduler.replaceNext(this, normalized.syncIntervalMinutes)
                     }
                 },
+                onLoadSendStatus = store::loadSendStatus,
                 onLoadSamples = { settings ->
                     val ringId = settings.ringId.trim()
                     if (ringId.isBlank()) {
@@ -93,14 +97,20 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+private fun io.github.ichwars.fitorb.relay.sync.RelaySyncResult.toSendStatus() = RelaySendStatus(
+    timestampMillis = System.currentTimeMillis(),
+    sent = uploadedSamples.size,
+    accepted = ack.accepted.size,
+    duplicates = ack.duplicates.size,
+    rejected = ack.rejected.size,
+)
+
 private fun ComponentActivity.configureSystemBars() {
     val barColor = Color.parseColor("#040707")
-    window.statusBarColor = barColor
-    window.navigationBarColor = barColor
-    WindowInsetsControllerCompat(window, window.decorView).apply {
-        isAppearanceLightStatusBars = false
-        isAppearanceLightNavigationBars = false
-    }
+    enableEdgeToEdge(
+        statusBarStyle = SystemBarStyle.dark(barColor),
+        navigationBarStyle = SystemBarStyle.dark(barColor),
+    )
 }
 
 private fun RelaySettings.withDefaultRelayId(defaultRelayId: String): RelaySettings =

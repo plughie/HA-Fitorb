@@ -89,4 +89,20 @@ class RelaySettingsStoreTest {
         assertEquals(MAX_SYNC_INTERVAL_MINUTES, store.load().syncIntervalMinutes)
         assertEquals(MAX_STEP_GOAL_STEPS, store.load().stepGoal)
     }
+
+    @Test
+    fun sendStatusRoundTrips() {
+        val store = RelaySettingsStore(context)
+        val status = RelaySendStatus(
+            timestampMillis = 1_788_393_600_000,
+            sent = 12,
+            accepted = 7,
+            duplicates = 4,
+            rejected = 1,
+        )
+
+        store.saveSendStatus(status)
+
+        assertEquals(status, store.loadSendStatus())
+    }
 }

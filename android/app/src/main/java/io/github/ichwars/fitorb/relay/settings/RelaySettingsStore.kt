@@ -11,6 +11,11 @@ private const val KEY_RING_ID = "ring_id"
 private const val KEY_RING_NAME = "ring_name"
 private const val KEY_SYNC_INTERVAL_MINUTES = "sync_interval_minutes"
 private const val KEY_STEP_GOAL = "step_goal"
+private const val KEY_LAST_SEND_AT = "last_send_at"
+private const val KEY_LAST_SENT = "last_sent"
+private const val KEY_LAST_ACCEPTED = "last_accepted"
+private const val KEY_LAST_DUPLICATES = "last_duplicates"
+private const val KEY_LAST_REJECTED = "last_rejected"
 
 val DEFAULT_HOME_ASSISTANT_URL: String = BuildConfig.DEFAULT_HOME_ASSISTANT_URL
 val DEFAULT_RELAY_TOKEN: String = BuildConfig.DEFAULT_RELAY_TOKEN
@@ -64,7 +69,37 @@ class RelaySettingsStore(context: Context) {
             )
             .apply()
     }
+
+    fun saveSendStatus(status: RelaySendStatus) {
+        preferences.edit()
+            .putLong(KEY_LAST_SEND_AT, status.timestampMillis)
+            .putInt(KEY_LAST_SENT, status.sent)
+            .putInt(KEY_LAST_ACCEPTED, status.accepted)
+            .putInt(KEY_LAST_DUPLICATES, status.duplicates)
+            .putInt(KEY_LAST_REJECTED, status.rejected)
+            .apply()
+    }
+
+    fun loadSendStatus(): RelaySendStatus? {
+        val timestamp = preferences.getLong(KEY_LAST_SEND_AT, 0)
+        if (timestamp == 0L) return null
+        return RelaySendStatus(
+            timestampMillis = timestamp,
+            sent = preferences.getInt(KEY_LAST_SENT, 0),
+            accepted = preferences.getInt(KEY_LAST_ACCEPTED, 0),
+            duplicates = preferences.getInt(KEY_LAST_DUPLICATES, 0),
+            rejected = preferences.getInt(KEY_LAST_REJECTED, 0),
+        )
+    }
 }
+
+data class RelaySendStatus(
+    val timestampMillis: Long,
+    val sent: Int,
+    val accepted: Int,
+    val duplicates: Int,
+    val rejected: Int,
+)
 
 const val MIN_SYNC_INTERVAL_MINUTES = 1
 const val MAX_SYNC_INTERVAL_MINUTES = 60

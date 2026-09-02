@@ -54,9 +54,9 @@ Home Assistant recorder state rows. Long-term statistics publishing will be
 added after the packet timestamps and units are confirmed with real hardware
 logs.
 
-## Fitorb Mobile Relay for Android
+## Fitorb Mobile Relay for Android and iOS
 
-**Fitorb Mobile Relay** is the optional Android companion app for multi-day
+**Fitorb Mobile Relay** is the optional Android or iOS companion app for multi-day
 travel where the ring is not near Home Assistant Bluetooth. The app reads the
 ring on a configurable schedule, stores samples locally, and uploads batches to
 Home Assistant over your own HTTPS endpoint at `/api/fitorb/relay/v1/samples`.
@@ -65,13 +65,20 @@ Choose the connection behavior under **Settings → Devices & services → Fitor
 → Configure**:
 
 - **Direct Bluetooth** always polls the ring from Home Assistant.
-- **Mobile relay** accepts Android uploads without attempting direct BLE reads.
+- **Mobile relay** accepts phone uploads without attempting direct BLE reads.
 - **Automatic fallback** uses recent relay uploads and resumes direct BLE polling
   when the relay has been inactive for 30 minutes.
 
-The Android app focuses on reliable mobile capture and relay upload. It shows
+The mobile apps focus on reliable capture and relay upload. They show
 real ring values, including activity and sleep-stage views, but Home Assistant
 remains the long-term history target.
+
+Android can schedule collection in the background. Because iOS suspends ordinary
+apps in the background, the iOS app sends once when opened after setup and then
+at the configured interval while it remains open. Both apps also provide a
+manual **Send** button and show the sent, accepted, duplicate, and rejected
+sample counts after every manual or scheduled operation. Build instructions are
+in [`android/README.md`](android/README.md) and [`ios/README.md`](ios/README.md).
 
 Relay uploads are mapped onto the same Home Assistant entities used by direct
 Bluetooth reads. The latest accepted values are restored after a Home Assistant
@@ -84,7 +91,7 @@ retrieves the summary and awake, light, deep, and REM durations. This flow has
 been validated end to end with a COLMI R12.
 
 Use the `fitorb.create_relay_token` service to create a relay-scoped token for
-one Android device. Store that token in the relay app. The token is only valid
+one mobile device. Store that token in the relay app. The token is only valid
 for Fitorb relay ingest and can be revoked with `fitorb.revoke_relay_token`.
 Treat it as a bearer secret and send it only over HTTPS.
 
@@ -100,7 +107,7 @@ When exactly one Fitorb ring is loaded, `entry_id` is optional. If multiple
 Fitorb rings are loaded, pass the desired config entry ID explicitly. The
 service response contains `token_id`, `token`, `entry_id`, `ring_id`, and
 `label`. The token begins with `fitorb_relay_`. Use `token` and `ring_id` in the
-Android relay app.
+mobile relay app.
 
 ```powershell
 Invoke-RestMethod `

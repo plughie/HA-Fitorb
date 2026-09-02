@@ -180,7 +180,9 @@ private class FitorbGattSession(
             gatt: BluetoothGatt,
             characteristic: BluetoothGattCharacteristic,
         ) {
-            characteristic.value?.let { routeNotification(characteristic.uuid, it) }
+            @Suppress("DEPRECATION")
+            val value = characteristic.value
+            value?.let { routeNotification(characteristic.uuid, it) }
         }
 
         override fun onCharacteristicChanged(

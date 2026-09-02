@@ -48,3 +48,7 @@ in the app. After the ring closes a sleep session, the next sync retrieves its
 summary and awake, light, deep, and REM durations. Activity, heart rate, SpO2,
 stress, and a complete staged sleep session have been validated with a COLMI
 R12.
+
+After setup, use **Send** to run a collection immediately. The status display
+updates after both manual sends and scheduled work with the number of samples
+sent and Home Assistant's accepted, duplicate, and rejected counts.

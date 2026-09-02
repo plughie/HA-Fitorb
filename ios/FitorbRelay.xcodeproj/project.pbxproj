@@ -1,0 +1,429 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		22D9408CCD3937442E5A8DAF /* RelayAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0F9219CCFD22C9C4F1C3799 /* RelayAPI.swift */; };
+		282E8019630D9F98B5E394C5 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A620B6605E7B51CD9C835CD /* Models.swift */; };
+		48BE5519F3D7259B69490B1C /* RingProtocolTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F80FA0A5D9A8140DA3DBA68 /* RingProtocolTests.swift */; };
+		4D08645DB176360E6437F2A5 /* RelayViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00BDF2361A1BA5C658DFC8D /* RelayViewModel.swift */; };
+		555A3128B832C46960753E07 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB23B1F27002671C4CA09D04 /* ContentView.swift */; };
+		62D0D114ACD487E2DF82596E /* RingCollector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 158BB6A0E27A8CAEC029DBAA /* RingCollector.swift */; };
+		9AFB775DACC20E41606EA1B8 /* RingProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8CEBC1704D23CA73790F869 /* RingProtocol.swift */; };
+		D27D7ECB59060E6E4C903A40 /* FitorbRelayApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = F404E59944B6679B7AD039B7 /* FitorbRelayApp.swift */; };
+		F16D4A49D75399DECFD788F1 /* SettingsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C8925F7DA7A8DB8FF93E8C1 /* SettingsStore.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		C63ECBA0EBF40D8DF3F8E866 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = B29DADB612F916EE028CE8A4 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = F63134E1668E3CD92B8D7D14;
+			remoteInfo = FitorbRelay;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		0F80FA0A5D9A8140DA3DBA68 /* RingProtocolTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RingProtocolTests.swift; sourceTree = "<group>"; };
+		158BB6A0E27A8CAEC029DBAA /* RingCollector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RingCollector.swift; sourceTree = "<group>"; };
+		279CD6BD8D5DF373F4DEB34A /* FitorbRelay.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = FitorbRelay.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		5C8925F7DA7A8DB8FF93E8C1 /* SettingsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsStore.swift; sourceTree = "<group>"; };
+		688FE3B5C28155EA91DAA76F /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		73CEFCF3AFE19AF0AD756432 /* FitorbRelayTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = FitorbRelayTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		7A620B6605E7B51CD9C835CD /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
+		A0F9219CCFD22C9C4F1C3799 /* RelayAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RelayAPI.swift; sourceTree = "<group>"; };
+		B8CEBC1704D23CA73790F869 /* RingProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RingProtocol.swift; sourceTree = "<group>"; };
+		DB23B1F27002671C4CA09D04 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		F00BDF2361A1BA5C658DFC8D /* RelayViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RelayViewModel.swift; sourceTree = "<group>"; };
+		F404E59944B6679B7AD039B7 /* FitorbRelayApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FitorbRelayApp.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		445ABCBC92F0298A04EA939A = {
+			isa = PBXGroup;
+			children = (
+				519F52B9564AE6A4FBF7CBB8 /* FitorbRelay */,
+				6840934E94C35A91C2C7F794 /* FitorbRelayTests */,
+				D7E519547A48DB83DED8EBF9 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		519F52B9564AE6A4FBF7CBB8 /* FitorbRelay */ = {
+			isa = PBXGroup;
+			children = (
+				DB23B1F27002671C4CA09D04 /* ContentView.swift */,
+				F404E59944B6679B7AD039B7 /* FitorbRelayApp.swift */,
+				688FE3B5C28155EA91DAA76F /* Info.plist */,
+				7A620B6605E7B51CD9C835CD /* Models.swift */,
+				A0F9219CCFD22C9C4F1C3799 /* RelayAPI.swift */,
+				F00BDF2361A1BA5C658DFC8D /* RelayViewModel.swift */,
+				158BB6A0E27A8CAEC029DBAA /* RingCollector.swift */,
+				B8CEBC1704D23CA73790F869 /* RingProtocol.swift */,
+				5C8925F7DA7A8DB8FF93E8C1 /* SettingsStore.swift */,
+			);
+			path = FitorbRelay;
+			sourceTree = "<group>";
+		};
+		6840934E94C35A91C2C7F794 /* FitorbRelayTests */ = {
+			isa = PBXGroup;
+			children = (
+				0F80FA0A5D9A8140DA3DBA68 /* RingProtocolTests.swift */,
+			);
+			path = FitorbRelayTests;
+			sourceTree = "<group>";
+		};
+		D7E519547A48DB83DED8EBF9 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				279CD6BD8D5DF373F4DEB34A /* FitorbRelay.app */,
+				73CEFCF3AFE19AF0AD756432 /* FitorbRelayTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		07DC3E9490240A0EAEA1A7B3 /* FitorbRelayTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = DA2CFCCC7AFAD49DF4F79C1C /* Build configuration list for PBXNativeTarget "FitorbRelayTests" */;
+			buildPhases = (
+				D9F12B9BEC88F1645FEDFADB /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				7F795C53E670DFFE3C8FCF5A /* PBXTargetDependency */,
+			);
+			name = FitorbRelayTests;
+			packageProductDependencies = (
+			);
+			productName = FitorbRelayTests;
+			productReference = 73CEFCF3AFE19AF0AD756432 /* FitorbRelayTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		F63134E1668E3CD92B8D7D14 /* FitorbRelay */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 5573C2411AFBFF70AC147C20 /* Build configuration list for PBXNativeTarget "FitorbRelay" */;
+			buildPhases = (
+				A04935DF72D1D960A3ED7A0C /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = FitorbRelay;
+			packageProductDependencies = (
+			);
+			productName = FitorbRelay;
+			productReference = 279CD6BD8D5DF373F4DEB34A /* FitorbRelay.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		B29DADB612F916EE028CE8A4 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 2700;
+				TargetAttributes = {
+					F63134E1668E3CD92B8D7D14 = {
+						DevelopmentTeam = "";
+						ProvisioningStyle = Automatic;
+					};
+				};
+			};
+			buildConfigurationList = 9A42068F01D965F633520C4E /* Build configuration list for PBXProject "FitorbRelay" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 445ABCBC92F0298A04EA939A;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = D7E519547A48DB83DED8EBF9 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				F63134E1668E3CD92B8D7D14 /* FitorbRelay */,
+				07DC3E9490240A0EAEA1A7B3 /* FitorbRelayTests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		A04935DF72D1D960A3ED7A0C /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				555A3128B832C46960753E07 /* ContentView.swift in Sources */,
+				D27D7ECB59060E6E4C903A40 /* FitorbRelayApp.swift in Sources */,
+				282E8019630D9F98B5E394C5 /* Models.swift in Sources */,
+				22D9408CCD3937442E5A8DAF /* RelayAPI.swift in Sources */,
+				4D08645DB176360E6437F2A5 /* RelayViewModel.swift in Sources */,
+				62D0D114ACD487E2DF82596E /* RingCollector.swift in Sources */,
+				9AFB775DACC20E41606EA1B8 /* RingProtocol.swift in Sources */,
+				F16D4A49D75399DECFD788F1 /* SettingsStore.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D9F12B9BEC88F1645FEDFADB /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				48BE5519F3D7259B69490B1C /* RingProtocolTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		7F795C53E670DFFE3C8FCF5A /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = F63134E1668E3CD92B8D7D14 /* FitorbRelay */;
+			targetProxy = C63ECBA0EBF40D8DF3F8E866 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		44C4EA7ED4EE8E6F19832FB2 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = "";
+				INFOPLIST_FILE = FitorbRelay/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = io.github.ichwars.fitorb.relay.ios;
+				PRODUCT_NAME = FitorbRelay;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+		48E6C1A5404FDBF9D6A72C8A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = io.github.ichwars.FitorbRelayTests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/FitorbRelay.app/FitorbRelay";
+			};
+			name = Debug;
+		};
+		5AC870D6E91A41A2BA2AC5D7 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				FITORB_DEFAULT_HOME_ASSISTANT_URL = "";
+				FITORB_DEFAULT_RELAY_ID = "";
+				FITORB_DEFAULT_RELAY_TOKEN = "";
+				FITORB_DEFAULT_RING_ID = "";
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		6F731F8C8ACC90142EE84A4F /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = io.github.ichwars.FitorbRelayTests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/FitorbRelay.app/FitorbRelay";
+			};
+			name = Release;
+		};
+		FB6E6A943DA80A803F3E78F0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = "";
+				INFOPLIST_FILE = FitorbRelay/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = io.github.ichwars.fitorb.relay.ios;
+				PRODUCT_NAME = FitorbRelay;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		FF78C0B31B70A6CB62C1E84C /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				FITORB_DEFAULT_HOME_ASSISTANT_URL = "";
+				FITORB_DEFAULT_RELAY_ID = "";
+				FITORB_DEFAULT_RELAY_TOKEN = "";
+				FITORB_DEFAULT_RING_ID = "";
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		5573C2411AFBFF70AC147C20 /* Build configuration list for PBXNativeTarget "FitorbRelay" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FB6E6A943DA80A803F3E78F0 /* Debug */,
+				44C4EA7ED4EE8E6F19832FB2 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		9A42068F01D965F633520C4E /* Build configuration list for PBXProject "FitorbRelay" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				5AC870D6E91A41A2BA2AC5D7 /* Debug */,
+				FF78C0B31B70A6CB62C1E84C /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		DA2CFCCC7AFAD49DF4F79C1C /* Build configuration list for PBXNativeTarget "FitorbRelayTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				48E6C1A5404FDBF9D6A72C8A /* Debug */,
+				6F731F8C8ACC90142EE84A4F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = B29DADB612F916EE028CE8A4 /* Project object */;
+}

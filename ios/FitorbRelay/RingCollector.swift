@@ -1,0 +1,126 @@
+@preconcurrency import CoreBluetooth
+import Foundation
+
+@MainActor
+final class RingCollector: NSObject, @preconcurrency CBCentralManagerDelegate, @preconcurrency CBPeripheralDelegate {
+    private var central: CBCentralManager!
+    private var discovered: [UUID: RingChoice] = [:]
+    private var peripheral: CBPeripheral?
+    private var uartWrite: CBCharacteristic?
+    private var dataWrite: CBCharacteristic?
+    private var uartPackets: [Data] = []
+    private var dataPackets: [Data] = []
+
+    override init() { super.init(); central = CBCentralManager(delegate: self, queue: .main) }
+    func centralManagerDidUpdateState(_ central: CBCentralManager) {}
+
+    func scan() async throws -> [RingChoice] {
+        try await waitUntil { self.central.state == .poweredOn }
+        discovered = [:]
+        central.scanForPeripherals(withServices: nil, options: [CBCentralManagerScanOptionAllowDuplicatesKey: false])
+        try await Task.sleep(for: .seconds(8)); central.stopScan()
+        return discovered.values.sorted { $0.rssi > $1.rssi }
+    }
+
+    func centralManager(_ central: CBCentralManager, didDiscover peripheral: CBPeripheral,
+                        advertisementData: [String: Any], rssi RSSI: NSNumber) {
+        let name = advertisementData[CBAdvertisementDataLocalNameKey] as? String ?? peripheral.name ?? "Unknown ring"
+        let upper = name.uppercased()
+        guard upper.contains("R12") || upper.range(of: #"R0[2-6]"#, options: .regularExpression) != nil else { return }
+        discovered[peripheral.identifier] = RingChoice(id: peripheral.identifier, name: name, rssi: RSSI.intValue)
+    }
+
+    func collect(peripheralID: UUID, ringID: String) async throws -> [RelaySample] {
+        try await waitUntil { self.central.state == .poweredOn }
+        guard let ring = central.retrievePeripherals(withIdentifiers: [peripheralID]).first else { throw RelayError.message("Ring must be scanned again") }
+        peripheral = ring; ring.delegate = self; central.connect(ring)
+        try await waitUntil(timeout: 20) { ring.state == .connected }
+        ring.discoverServices([RingProtocol.uartService, RingProtocol.dataService])
+        try await waitUntil { self.uartWrite != nil }
+        var samples: [RelaySample] = []
+        write(RingProtocol.command([0x03]), to: uartWrite)
+        if let packet = try await nextUART(where: { $0.first == 0x03 }) { samples += RingProtocol.currentSamples(packet, ringID: ringID) }
+        write(RingProtocol.command([0x43, 0, 0x0f, 0, 0x5f, 1]), to: uartWrite)
+        var activity = ActivityAccumulator()
+        let activityDeadline = Date().addingTimeInterval(15)
+        while Date() < activityDeadline,
+              let packet = try await nextUART(timeout: 2, where: { $0.first == 0x43 }) {
+            if let activitySamples = activity.consume(packet, ringID: ringID) {
+                samples += activitySamples
+                break
+            }
+        }
+        samples += try await health(type: 0x01, metric: "heart_rate", unit: "bpm", ringID: ringID)
+        samples += try await health(type: 0x03, metric: "spo2", unit: "%", ringID: ringID)
+        samples += try await health(type: 0x08, metric: "stress", unit: nil, ringID: ringID)
+        if let dataWrite {
+            write(Data([0xbc, 0x27, 0, 0, 0xff, 0xff]), to: dataWrite)
+            if let frame = try await nextBigData() { samples += RingProtocol.sleepSamples(frame, ringID: ringID) }
+        }
+        central.cancelPeripheralConnection(ring); return samples
+    }
+
+    private func health(type: UInt8, metric: String, unit: String?, ringID: String) async throws -> [RelaySample] {
+        defer { write(RingProtocol.command([0x6a, type, 0, 0]), to: uartWrite) }
+        write(RingProtocol.command([0x69, type, 0x01]), to: uartWrite); try await Task.sleep(for: .milliseconds(500))
+        write(RingProtocol.command([0x69, type, 0x03]), to: uartWrite)
+        guard let packet = try await nextUART(timeout: 35, where: { RingProtocol.healthSample($0, ringID: ringID, type: type, metric: metric, unit: unit) != nil }),
+              let sample = RingProtocol.healthSample(packet, ringID: ringID, type: type, metric: metric, unit: unit) else { return [] }
+        return [sample]
+    }
+
+    private func write(_ data: Data, to characteristic: CBCharacteristic?) {
+        guard let peripheral, let characteristic else { return }; peripheral.writeValue(data, for: characteristic, type: .withResponse)
+    }
+
+    private func nextUART(timeout: TimeInterval = 10, where predicate: (Data) -> Bool) async throws -> Data? {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if let index = uartPackets.firstIndex(where: predicate) { return uartPackets.remove(at: index) }
+            try await Task.sleep(for: .milliseconds(100))
+        }
+        return nil
+    }
+
+    private func nextBigData() async throws -> Data? {
+        var buffer = Data(), deadline = Date().addingTimeInterval(20)
+        while Date() < deadline {
+            if !dataPackets.isEmpty { buffer.append(dataPackets.removeFirst()) }
+            while buffer.count >= 6 {
+                if buffer[0] != 0xbc { buffer.removeFirst(); continue }
+                let count = Int(buffer[2]) | Int(buffer[3]) << 8
+                guard buffer.count >= 6 + count else { break }
+                let id = buffer[1], payload = buffer.subdata(in: 6..<(6 + count)); buffer.removeSubrange(0..<(6 + count))
+                if id == 0x27 { return payload }
+            }
+            try await Task.sleep(for: .milliseconds(100))
+        }
+        return nil
+    }
+
+    private func waitUntil(timeout: TimeInterval = 10, _ condition: @escaping () -> Bool) async throws {
+        let deadline = Date().addingTimeInterval(timeout)
+        while !condition() { if Date() >= deadline { throw RelayError.message("Bluetooth timed out") }; try await Task.sleep(for: .milliseconds(100)) }
+    }
+
+    func centralManager(_ central: CBCentralManager, didConnect peripheral: CBPeripheral) { peripheral.discoverServices(nil) }
+    func centralManager(_ central: CBCentralManager, didFailToConnect peripheral: CBPeripheral, error: Error?) {}
+    func peripheral(_ peripheral: CBPeripheral, didDiscoverServices error: Error?) {
+        peripheral.services?.forEach { peripheral.discoverCharacteristics(nil, for: $0) }
+    }
+    func peripheral(_ peripheral: CBPeripheral, didDiscoverCharacteristicsFor service: CBService, error: Error?) {
+        service.characteristics?.forEach { c in
+            switch c.uuid {
+            case RingProtocol.uartWrite: uartWrite = c
+            case RingProtocol.dataWrite: dataWrite = c
+            case RingProtocol.uartNotify, RingProtocol.dataNotify: peripheral.setNotifyValue(true, for: c)
+            default: break
+            }
+        }
+    }
+    func peripheral(_ peripheral: CBPeripheral, didUpdateValueFor characteristic: CBCharacteristic, error: Error?) {
+        guard let value = characteristic.value else { return }
+        if characteristic.uuid == RingProtocol.uartNotify { uartPackets.append(value) }
+        if characteristic.uuid == RingProtocol.dataNotify { dataPackets.append(value) }
+    }
+}
