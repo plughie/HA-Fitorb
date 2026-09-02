@@ -17,10 +17,11 @@ These values are compiled into the app. In particular, a relay token included
 this way can be extracted from the APK, so use a relay-scoped token and do not
 commit it to this repository.
 
-HTTPS is required by default. For a trusted local network where Home Assistant
-is available only over plain HTTP, set `FITORB_ALLOW_CLEARTEXT_HTTP=true` while
-building. This opt-in is compiled into that APK and enables Android cleartext
-traffic as well as the app's HTTP URL validation.
+Release builds require HTTPS by default. Debug/installable builds accept HTTP
+for a trusted local Home Assistant network, so a saved local address does not
+disable **Send** after an upgrade. To opt a release build into local HTTP, set
+`FITORB_ALLOW_CLEARTEXT_HTTP=true` while building. This setting is compiled into
+the APK and enables both Android cleartext traffic and the app's URL validation.
 
 For a local debug build, set `FITORB_DEFAULT_RELAY_TOKEN` in your shell, adjust
 the non-secret defaults in `build-with-defaults.example.sh` if needed, and run

@@ -56,6 +56,14 @@ android {
         compose = true
     }
 
+    buildTypes {
+        debug {
+            // Debug/installable builds are commonly used with a trusted local HA server.
+            buildConfigField("boolean", "ALLOW_CLEARTEXT_HTTP", "true")
+            manifestPlaceholders["usesCleartextTraffic"] = "true"
+        }
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
