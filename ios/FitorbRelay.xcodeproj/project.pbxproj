@@ -16,6 +16,7 @@
 		9AFB775DACC20E41606EA1B8 /* RingProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8CEBC1704D23CA73790F869 /* RingProtocol.swift */; };
 		D27D7ECB59060E6E4C903A40 /* FitorbRelayApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = F404E59944B6679B7AD039B7 /* FitorbRelayApp.swift */; };
 		F16D4A49D75399DECFD788F1 /* SettingsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C8925F7DA7A8DB8FF93E8C1 /* SettingsStore.swift */; };
+		FDE5C80430E68B2E7C8793AD /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 1CA336244308E12E5FC9553E /* Assets.xcassets */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -31,6 +32,7 @@
 /* Begin PBXFileReference section */
 		0F80FA0A5D9A8140DA3DBA68 /* RingProtocolTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RingProtocolTests.swift; sourceTree = "<group>"; };
 		158BB6A0E27A8CAEC029DBAA /* RingCollector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RingCollector.swift; sourceTree = "<group>"; };
+		1CA336244308E12E5FC9553E /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		279CD6BD8D5DF373F4DEB34A /* FitorbRelay.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = FitorbRelay.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		5C8925F7DA7A8DB8FF93E8C1 /* SettingsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsStore.swift; sourceTree = "<group>"; };
 		688FE3B5C28155EA91DAA76F /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
@@ -56,6 +58,7 @@
 		519F52B9564AE6A4FBF7CBB8 /* FitorbRelay */ = {
 			isa = PBXGroup;
 			children = (
+				1CA336244308E12E5FC9553E /* Assets.xcassets */,
 				DB23B1F27002671C4CA09D04 /* ContentView.swift */,
 				F404E59944B6679B7AD039B7 /* FitorbRelayApp.swift */,
 				688FE3B5C28155EA91DAA76F /* Info.plist */,
@@ -112,6 +115,7 @@
 			buildConfigurationList = 5573C2411AFBFF70AC147C20 /* Build configuration list for PBXNativeTarget "FitorbRelay" */;
 			buildPhases = (
 				A04935DF72D1D960A3ED7A0C /* Sources */,
+				B7A5E6FF1ED5A2F32525DE72 /* Resources */,
 			);
 			buildRules = (
 			);
@@ -158,6 +162,17 @@
 			);
 		};
 /* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		B7A5E6FF1ED5A2F32525DE72 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FDE5C80430E68B2E7C8793AD /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		A04935DF72D1D960A3ED7A0C /* Sources */ = {

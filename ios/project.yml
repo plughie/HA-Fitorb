@@ -31,6 +31,7 @@ targets:
           - UIInterfaceOrientationPortrait
     settings:
       base:
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         PRODUCT_BUNDLE_IDENTIFIER: io.github.ichwars.fitorb.relay.ios
         PRODUCT_NAME: FitorbRelay
         TARGETED_DEVICE_FAMILY: 1
