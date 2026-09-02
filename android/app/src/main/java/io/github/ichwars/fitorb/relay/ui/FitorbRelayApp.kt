@@ -5,8 +5,10 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -30,6 +32,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -39,6 +42,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -49,6 +53,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
@@ -61,6 +66,9 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import io.github.ichwars.fitorb.relay.BuildConfig
 import io.github.ichwars.fitorb.relay.R
@@ -107,7 +115,7 @@ private val SleepAwakeColor = Color(0xFFFFA629)
 
 private val FitorbColorScheme = darkColorScheme(
     primary = AppGreen,
-    onPrimary = Color.White,
+    onPrimary = AppBlack,
     secondary = AppSilver,
     background = AppBlack,
     onBackground = AppText,
@@ -593,6 +601,7 @@ private fun HomeAssistantSetupStep(
                     stringResource(R.string.button_test_send)
                 },
                 enabled = canUpload,
+                loading = uploading,
                 onClick = onUpload,
                 modifier = Modifier.weight(1f),
             )
@@ -971,13 +980,15 @@ private fun ActivityPeriodSelector(
             Box(
                 modifier = Modifier
                     .weight(1f)
-                    .height(34.dp)
-                    .clip(RoundedCornerShape(18.dp))
+                    .height(48.dp)
+                    .clip(RoundedCornerShape(24.dp))
                     .background(if (selected) AppSilver.copy(alpha = 0.14f) else Color.Transparent)
                     .clickable(
                         interactionSource = interactionSource,
-                        indication = null,
-                    ) { onSelectedPeriodChange(key) },
+                        indication = LocalIndication.current,
+                        role = Role.RadioButton,
+                    ) { onSelectedPeriodChange(key) }
+                    .semantics { this.selected = selected },
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
@@ -1994,6 +2005,7 @@ private fun MoreScreen(
                     stringResource(R.string.button_test)
                 },
                 enabled = canUpload,
+                loading = uploading,
                 onClick = onUpload,
                 modifier = Modifier.weight(1f),
             )
@@ -2161,8 +2173,10 @@ private fun FloatingBottomBar(
                 val label = stringResource(tab.labelRes)
                 val interactionSource = remember { MutableInteractionSource() }
                 val hovered by interactionSource.collectIsHoveredAsState()
+                val pressed by interactionSource.collectIsPressedAsState()
                 val tabColor = when {
                     selected -> AppGreen
+                    pressed -> AppText
                     hovered -> AppText
                     else -> AppMuted
                 }
@@ -2173,8 +2187,10 @@ private fun FloatingBottomBar(
                         .clip(RoundedCornerShape(8.dp))
                         .clickable(
                             interactionSource = interactionSource,
-                            indication = null,
+                            indication = LocalIndication.current,
+                            role = Role.Tab,
                         ) { onTabSelected(tab) }
+                        .semantics { this.selected = selected }
                         .padding(top = 5.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
@@ -2382,19 +2398,35 @@ private fun PrimaryRelayButton(
     enabled: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    loading: Boolean = false,
 ) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val pressed by interactionSource.collectIsPressedAsState()
+    val pressScale by animateFloatAsState(
+        targetValue = if (pressed) 0.97f else 1f,
+        label = "Primary button press",
+    )
     Button(
         onClick = onClick,
         enabled = enabled,
-        modifier = modifier.height(52.dp),
+        modifier = modifier.height(52.dp).scale(pressScale),
+        interactionSource = interactionSource,
         colors = ButtonDefaults.buttonColors(
             containerColor = AppGreen,
-            contentColor = Color.White,
+            contentColor = AppBlack,
             disabledContainerColor = AppPanelSoft,
             disabledContentColor = AppDim,
         ),
         shape = RoundedCornerShape(26.dp),
     ) {
+        if (loading) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(18.dp),
+                color = AppBlack,
+                strokeWidth = 2.dp,
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+        }
         Text(text = text, fontWeight = FontWeight.SemiBold)
     }
 }
@@ -2405,9 +2437,16 @@ private fun SecondaryRelayButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val pressed by interactionSource.collectIsPressedAsState()
+    val pressScale by animateFloatAsState(
+        targetValue = if (pressed) 0.97f else 1f,
+        label = "Secondary button press",
+    )
     OutlinedButton(
         onClick = onClick,
-        modifier = modifier.height(52.dp),
+        modifier = modifier.height(52.dp).scale(pressScale),
+        interactionSource = interactionSource,
         colors = ButtonDefaults.outlinedButtonColors(contentColor = AppText),
         border = androidx.compose.foundation.BorderStroke(1.dp, AppLine),
         shape = RoundedCornerShape(26.dp),

@@ -8,6 +8,8 @@ final class RelayViewModel: ObservableObject {
     @Published var receipt: SendReceipt?
     @Published var status = "Ready"
     @Published var isSending = false
+    @Published var isScanning = false
+    @Published var isShowingScanResults = false
     @Published var showingSetup: Bool
 
     private let store = SettingsStore(), queue = SampleQueue(), collector = RingCollector(), api = RelayAPI()
@@ -16,6 +18,10 @@ final class RelayViewModel: ObservableObject {
     init() { let value = store.load(); settings = value; receipt = store.loadReceipt(); showingSetup = !value.isConfigured }
 
     func scan() async {
+        guard !isScanning else { return }
+        isScanning = true
+        isShowingScanResults = true
+        defer { isScanning = false }
         status = "Scanning…"
         do {
             rings = try await collector.scan()
@@ -24,7 +30,12 @@ final class RelayViewModel: ObservableObject {
             status = error.localizedDescription
         }
     }
-    func choose(_ ring: RingChoice) { settings.peripheralID = ring.id; settings.ringName = ring.name; status = "Selected \(ring.name)" }
+    func choose(_ ring: RingChoice) {
+        settings.peripheralID = ring.id
+        settings.ringName = ring.name
+        isShowingScanResults = false
+        status = "Selected \(ring.name)"
+    }
     func save() {
         settings.normalize()
         settings.syncIntervalMinutes = min(60, max(1, settings.syncIntervalMinutes))

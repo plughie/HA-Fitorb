@@ -9,31 +9,44 @@ struct ContentView: View {
             if model.showingSetup { setup } else { dashboard }
         }
         .tint(.green)
+        .buttonStyle(RelayButtonStyle())
     }
 
     private var setup: some View {
         NavigationStack {
             Form {
                 Section("Ring") {
-                    Button("Scan for ring") { Task { await model.scan() } }
+                    Button { Task { await model.scan() } } label: {
+                        HStack {
+                            if model.isScanning { ProgressView().controlSize(.small) }
+                            Text(model.isScanning ? "Scanning…" : (model.settings.ringName.isEmpty ? "Scan for ring" : "Scan again"))
+                        }
+                    }
+                    .disabled(model.isScanning)
+                    .accessibilityHint("Searches for nearby Bluetooth devices for eight seconds")
                     Text("Nearby Bluetooth devices appear below. Choose your ring; the closest device usually has the strongest signal.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
-                    ForEach(model.rings) { ring in
-                        Button { model.choose(ring) } label: {
-                            HStack {
-                                VStack(alignment: .leading) {
-                                    Text(ring.name)
-                                    Text(model.settings.peripheralID == ring.id ? "Selected" : "Tap to select")
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                }
-                                Spacer()
-                                Text("\(ring.rssi) dBm").foregroundStyle(.secondary)
-                                if model.settings.peripheralID == ring.id {
-                                    Image(systemName: "checkmark.circle.fill")
+                    if model.isShowingScanResults {
+                        ForEach(model.rings) { ring in
+                            Button { model.choose(ring) } label: {
+                                HStack {
+                                    VStack(alignment: .leading) {
+                                        Text(ring.name)
+                                        Text(model.settings.peripheralID == ring.id ? "Selected" : "Tap to select")
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                    Spacer()
+                                    Text("\(ring.rssi) dBm").foregroundStyle(.secondary)
+                                    if model.settings.peripheralID == ring.id {
+                                        Image(systemName: "checkmark.circle.fill")
+                                    }
                                 }
                             }
+                            .accessibilityLabel(ring.name)
+                            .accessibilityValue(model.settings.peripheralID == ring.id ? "Selected, signal \(ring.rssi) decibels" : "Signal \(ring.rssi) decibels")
+                            .accessibilityHint("Selects this Bluetooth device as your ring")
                         }
                     }
                     TextField("Home Assistant ring ID (Bluetooth MAC)", text: $model.settings.ringID)
@@ -48,7 +61,12 @@ struct ContentView: View {
                 Section("Schedule while open") {
                     Stepper("Every \(model.settings.syncIntervalMinutes) minutes", value: $model.settings.syncIntervalMinutes, in: 1...60)
                 }
-                Section { Text(model.status).foregroundStyle(.secondary) }
+                Section {
+                    Text(model.status)
+                        .foregroundStyle(.secondary)
+                        .accessibilityLabel("Relay status")
+                        .accessibilityValue(model.status)
+                }
                 if !model.settings.configurationIssues.isEmpty {
                     Section("Needed before sending") {
                         ForEach(model.settings.configurationIssues, id: \.self) { issue in
@@ -58,9 +76,16 @@ struct ContentView: View {
                     }
                 }
                 Section {
-                    Button(model.isSending ? "Sending…" : "Save and Send") {
+                    Button {
                         model.save(); Task { await model.send() }
-                    }.disabled(!model.settings.isConfigured || model.isSending)
+                    } label: {
+                        HStack {
+                            if model.isSending { ProgressView().controlSize(.small) }
+                            Text(model.isSending ? "Sending…" : "Save and Send")
+                        }
+                    }
+                    .disabled(!model.settings.isConfigured || model.isSending)
+                    .accessibilityHint("Saves these settings, collects ring data, and sends it to Home Assistant")
                 }
             }
             .navigationTitle("Fitorb Relay Setup")
@@ -88,8 +113,14 @@ struct ContentView: View {
                         }
                     }
                     Section {
-                        Button(model.isSending ? "Sending…" : "Send") { Task { await model.send() } }
+                        Button { Task { await model.send() } } label: {
+                            HStack {
+                                if model.isSending { ProgressView().controlSize(.small) }
+                                Text(model.isSending ? "Sending…" : "Send")
+                            }
+                        }
                             .disabled(model.isSending)
+                            .accessibilityHint("Collects current ring data and sends it to Home Assistant")
                     }
                 }.navigationTitle("Fitorb Relay")
             }.tabItem { Label("Home", systemImage: "circle.hexagongrid") }
@@ -123,4 +154,15 @@ struct ContentView: View {
         Dictionary(grouping: model.samples, by: \.metric).compactMap { $0.value.last }.sorted { $0.metric < $1.metric }
     }
     private func label(_ metric: String) -> String { metric.replacingOccurrences(of: "_", with: " ").capitalized }
+}
+
+private struct RelayButtonStyle: ButtonStyle {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed && !reduceMotion ? 0.96 : 1)
+            .opacity(configuration.isPressed ? 0.72 : 1)
+            .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: configuration.isPressed)
+    }
 }
