@@ -10,12 +10,34 @@ final class RelayViewModel: ObservableObject {
     @Published var isSending = false
     @Published var isScanning = false
     @Published var isShowingScanResults = false
+    @Published var healthKitEnabled: Bool
+    @Published var healthKitStatus = "Off"
     @Published var showingSetup: Bool
 
     private let store = SettingsStore(), queue = SampleQueue(), collector = RingCollector(), api = RelayAPI()
+    private let healthKit = HealthKitExporter()
     private var timerTask: Task<Void, Never>?, launched = false
 
-    init() { let value = store.load(); settings = value; receipt = store.loadReceipt(); showingSetup = !value.isConfigured }
+    init() {
+        let value = store.load(); settings = value; receipt = store.loadReceipt(); showingSetup = !value.isConfigured
+        healthKitEnabled = store.loadHealthKitEnabled()
+        healthKitStatus = healthKitEnabled ? "On" : "Off"
+    }
+
+    func setHealthKitEnabled(_ enabled: Bool) async {
+        guard enabled else {
+            healthKitEnabled = false; healthKitStatus = "Off"; store.saveHealthKitEnabled(false); return
+        }
+        healthKitStatus = "Requesting access…"
+        do {
+            guard try await healthKit.requestAuthorization() else {
+                healthKitEnabled = false; healthKitStatus = "Apple Health is unavailable"; return
+            }
+            healthKitEnabled = true; healthKitStatus = "On"; store.saveHealthKitEnabled(true)
+        } catch {
+            healthKitEnabled = false; healthKitStatus = "Access not granted"; store.saveHealthKitEnabled(false)
+        }
+    }
 
     func scan() async {
         guard !isScanning else { return }
@@ -54,6 +76,12 @@ final class RelayViewModel: ObservableObject {
         do {
             let captured = try await collector.collect(peripheralID: peripheralID, ringID: settings.ringID.trimmingCharacters(in: .whitespacesAndNewlines))
             await queue.append(captured); let pending = await queue.pending(); samples = captured
+            if healthKitEnabled {
+                do {
+                    let count = try await healthKit.export(captured)
+                    healthKitStatus = count == 0 ? "On — no new supported data" : "On — saved \(count) records"
+                } catch { healthKitStatus = "Apple Health error: \(error.localizedDescription)" }
+            }
             status = "Sending \(pending.count) samples…"
             let ack = try await api.upload(settings: settings, samples: pending)
             await queue.remove(ids: Set(ack.accepted + ack.duplicates))

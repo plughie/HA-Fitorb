@@ -12,6 +12,7 @@
 		48BE5519F3D7259B69490B1C /* RingProtocolTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F80FA0A5D9A8140DA3DBA68 /* RingProtocolTests.swift */; };
 		4D08645DB176360E6437F2A5 /* RelayViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00BDF2361A1BA5C658DFC8D /* RelayViewModel.swift */; };
 		555A3128B832C46960753E07 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB23B1F27002671C4CA09D04 /* ContentView.swift */; };
+		5CE6DF9FA8D72AA89E68D721 /* HealthKitExporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 510D250EC6D0907A207FFD1E /* HealthKitExporter.swift */; };
 		62D0D114ACD487E2DF82596E /* RingCollector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 158BB6A0E27A8CAEC029DBAA /* RingCollector.swift */; };
 		9AFB775DACC20E41606EA1B8 /* RingProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8CEBC1704D23CA73790F869 /* RingProtocol.swift */; };
 		D27D7ECB59060E6E4C903A40 /* FitorbRelayApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = F404E59944B6679B7AD039B7 /* FitorbRelayApp.swift */; };
@@ -34,11 +35,13 @@
 		158BB6A0E27A8CAEC029DBAA /* RingCollector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RingCollector.swift; sourceTree = "<group>"; };
 		1CA336244308E12E5FC9553E /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		279CD6BD8D5DF373F4DEB34A /* FitorbRelay.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = FitorbRelay.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		510D250EC6D0907A207FFD1E /* HealthKitExporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitExporter.swift; sourceTree = "<group>"; };
 		5C8925F7DA7A8DB8FF93E8C1 /* SettingsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsStore.swift; sourceTree = "<group>"; };
 		688FE3B5C28155EA91DAA76F /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		73CEFCF3AFE19AF0AD756432 /* FitorbRelayTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = FitorbRelayTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		7A620B6605E7B51CD9C835CD /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
 		7F28D8B22ED5CF06AE8C77A0 /* Defaults.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Defaults.xcconfig; sourceTree = "<group>"; };
+		8E4D78B08239586B3D320361 /* FitorbRelay.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = FitorbRelay.entitlements; sourceTree = "<group>"; };
 		A0F9219CCFD22C9C4F1C3799 /* RelayAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RelayAPI.swift; sourceTree = "<group>"; };
 		B8CEBC1704D23CA73790F869 /* RingProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RingProtocol.swift; sourceTree = "<group>"; };
 		DB23B1F27002671C4CA09D04 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
@@ -70,7 +73,9 @@
 			children = (
 				1CA336244308E12E5FC9553E /* Assets.xcassets */,
 				DB23B1F27002671C4CA09D04 /* ContentView.swift */,
+				8E4D78B08239586B3D320361 /* FitorbRelay.entitlements */,
 				F404E59944B6679B7AD039B7 /* FitorbRelayApp.swift */,
+				510D250EC6D0907A207FFD1E /* HealthKitExporter.swift */,
 				688FE3B5C28155EA91DAA76F /* Info.plist */,
 				7A620B6605E7B51CD9C835CD /* Models.swift */,
 				A0F9219CCFD22C9C4F1C3799 /* RelayAPI.swift */,
@@ -191,6 +196,7 @@
 			files = (
 				555A3128B832C46960753E07 /* ContentView.swift in Sources */,
 				D27D7ECB59060E6E4C903A40 /* FitorbRelayApp.swift in Sources */,
+				5CE6DF9FA8D72AA89E68D721 /* HealthKitExporter.swift in Sources */,
 				282E8019630D9F98B5E394C5 /* Models.swift in Sources */,
 				22D9408CCD3937442E5A8DAF /* RelayAPI.swift in Sources */,
 				4D08645DB176360E6437F2A5 /* RelayViewModel.swift in Sources */,
@@ -224,14 +230,17 @@
 			baseConfigurationReference = 7F28D8B22ED5CF06AE8C77A0 /* Defaults.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = FitorbRelay/FitorbRelay.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 10;
 				DEVELOPMENT_TEAM = "";
 				INFOPLIST_FILE = FitorbRelay/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
+				MARKETING_VERSION = 0.1.9;
 				PRODUCT_BUNDLE_IDENTIFIER = io.github.ichwars.fitorb.relay.ios;
 				PRODUCT_NAME = FitorbRelay;
 				SDKROOT = iphoneos;
@@ -345,14 +354,17 @@
 			baseConfigurationReference = 7F28D8B22ED5CF06AE8C77A0 /* Defaults.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = FitorbRelay/FitorbRelay.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 10;
 				DEVELOPMENT_TEAM = "";
 				INFOPLIST_FILE = FitorbRelay/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
+				MARKETING_VERSION = 0.1.9;
 				PRODUCT_BUNDLE_IDENTIFIER = io.github.ichwars.fitorb.relay.ios;
 				PRODUCT_NAME = FitorbRelay;
 				SDKROOT = iphoneos;

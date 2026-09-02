@@ -6,6 +6,7 @@ import androidx.work.WorkerParameters
 import io.github.ichwars.fitorb.relay.FITORB_APP_VERSION
 import io.github.ichwars.fitorb.relay.ble.AndroidFitorbBleCollector
 import io.github.ichwars.fitorb.relay.data.RelayDatabase
+import io.github.ichwars.fitorb.relay.health.HealthConnectExporter
 import io.github.ichwars.fitorb.relay.settings.RelaySettingsStore
 import io.github.ichwars.fitorb.relay.settings.RelaySendStatus
 
@@ -26,6 +27,9 @@ class RelayWorker(
                 uploader = fitorbRelayUploader(settings.homeAssistantUrl),
                 appVersion = FITORB_APP_VERSION,
             ).run(settings).also { result ->
+                if (settings.healthConnectEnabled) {
+                    runCatching { HealthConnectExporter(applicationContext).export(result.capturedSamples) }
+                }
                 store.saveSendStatus(
                     RelaySendStatus(
                         timestampMillis = System.currentTimeMillis(),

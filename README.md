@@ -80,6 +80,14 @@ manual **Send** button and show the sent, accepted, duplicate, and rejected
 sample counts after every manual or scheduled operation. Build instructions are
 in [`android/README.md`](android/README.md) and [`ios/README.md`](ios/README.md).
 
+Health export is optional and disabled by default. The iOS app can write to
+Apple Health, and the Android app can write to Health Connect after the user
+grants the platform permissions. Supported exports are heart rate, blood
+oxygen, completed-day steps/distance/active calories, and completed sleep
+stages. Stress remains available only in Home Assistant because neither health
+platform provides a matching stress data type. A health export failure never
+blocks the Home Assistant upload.
+
 Relay uploads are mapped onto the same Home Assistant entities used by direct
 Bluetooth reads. The latest accepted values are restored after a Home Assistant
 restart, including battery, activity, heart rate, SpO2, stress, and sleep

@@ -27,8 +27,8 @@ android {
         applicationId = "io.github.ichwars.fitorb.relay"
         minSdk = 26
         targetSdk = 35
-        versionCode = 9
-        versionName = "0.1.8"
+        versionCode = 10
+        versionName = "0.1.9"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField(
             "String",
@@ -97,6 +97,7 @@ dependencies {
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
     implementation(libs.androidx.work.runtime.ktx)
+    implementation(libs.androidx.health.connect)
     implementation(libs.okhttp)
     implementation(libs.kotlinx.serialization.json)
     ksp(libs.androidx.room.compiler)

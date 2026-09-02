@@ -9,6 +9,9 @@ import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.health.connect.client.PermissionController
+import androidx.lifecycle.lifecycleScope
+import io.github.ichwars.fitorb.relay.health.HealthConnectExporter
 import io.github.ichwars.fitorb.relay.ble.AndroidFitorbBleCollector
 import io.github.ichwars.fitorb.relay.data.RelayDatabase
 import io.github.ichwars.fitorb.relay.data.toDto
@@ -19,8 +22,16 @@ import io.github.ichwars.fitorb.relay.sync.RelaySyncRunner
 import io.github.ichwars.fitorb.relay.sync.RelaySyncScheduler
 import io.github.ichwars.fitorb.relay.sync.fitorbRelayUploader
 import io.github.ichwars.fitorb.relay.ui.FitorbRelayApp
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
+    private var healthPermissionResult: ((Boolean) -> Unit)? = null
+    private val healthPermissionLauncher = registerForActivityResult(
+        PermissionController.createRequestPermissionResultContract(),
+    ) { granted ->
+        healthPermissionResult?.invoke(granted.containsAll(HealthConnectExporter.permissions))
+        healthPermissionResult = null
+    }
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions(),
     ) {
@@ -35,6 +46,7 @@ class MainActivity : ComponentActivity() {
         val database = RelayDatabase.open(this)
         val defaultRelayId = defaultRelayId()
         val initialSettings = store.load().withDefaultRelayId(defaultRelayId)
+        val healthConnect = HealthConnectExporter(this)
         if (initialSettings.isReadyForRelay()) {
             RelaySyncScheduler.ensureNext(this, initialSettings.syncIntervalMinutes)
         }
@@ -60,11 +72,30 @@ class MainActivity : ComponentActivity() {
                         uploader = fitorbRelayUploader(normalized.homeAssistantUrl),
                         appVersion = FITORB_APP_VERSION,
                     ).run(normalized).also { result ->
+                        if (normalized.healthConnectEnabled) {
+                            runCatching { healthConnect.export(result.capturedSamples) }
+                        }
                         store.saveSendStatus(result.toSendStatus())
                         RelaySyncScheduler.replaceNext(this, normalized.syncIntervalMinutes)
                     }
                 },
                 onLoadSendStatus = store::loadSendStatus,
+                onHealthConnectChange = { enabled, completed ->
+                    if (!enabled) {
+                        completed(false)
+                    } else if (!healthConnect.isAvailable) {
+                        completed(false)
+                    } else {
+                        lifecycleScope.launch {
+                            if (healthConnect.hasPermissions()) {
+                                completed(true)
+                            } else {
+                                healthPermissionResult = completed
+                                healthPermissionLauncher.launch(HealthConnectExporter.permissions)
+                            }
+                        }
+                    }
+                },
                 onLoadSamples = { settings ->
                     val ringId = settings.ringId.trim()
                     if (ringId.isBlank()) {

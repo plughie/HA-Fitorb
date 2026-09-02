@@ -52,3 +52,15 @@ R12.
 After setup, use **Send** to run a collection immediately. The status display
 updates after both manual sends and scheduled work with the number of samples
 sent and Home Assistant's accepted, duplicate, and rejected counts.
+
+## Health Connect
+
+In **More**, enable **Save ring data to Health Connect** and approve the
+requested write permissions. The app writes heart rate, blood oxygen,
+completed-day steps/distance/active calories, and completed sleep sessions with
+stages. Daily activity is deferred until the day has ended so repeated
+cumulative snapshots do not inflate totals. Stress remains Home Assistant-only
+because Health Connect has no direct stress record. This feature needs Android
+9 or newer with Health Connect available; Android 14 and newer include Health
+Connect in the system. Home Assistant uploads continue if health export is off,
+unavailable, or fails.

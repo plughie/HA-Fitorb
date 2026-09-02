@@ -39,6 +39,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
@@ -146,6 +147,7 @@ fun FitorbRelayApp(
     onUpload: suspend (RelaySettings) -> RelaySyncResult,
     onLoadSamples: suspend (RelaySettings) -> List<RelaySampleDto>,
     onLoadSendStatus: () -> RelaySendStatus?,
+    onHealthConnectChange: (Boolean, (Boolean) -> Unit) -> Unit,
 ) {
     var homeAssistantUrl by rememberSaveable {
         mutableStateOf(initialSettings.homeAssistantUrl)
@@ -170,6 +172,8 @@ fun FitorbRelayApp(
             ),
         )
     }
+    var healthConnectEnabled by rememberSaveable { mutableStateOf(initialSettings.healthConnectEnabled) }
+    var healthConnectMessage by rememberSaveable { mutableStateOf("") }
     var setupStep by rememberSaveable {
         mutableStateOf(if (initialSettings.isReadyForUpload()) 2 else 0)
     }
@@ -195,6 +199,7 @@ fun FitorbRelayApp(
         syncIntervalMinutes = syncInterval,
         ringName = ringName,
         stepGoal = stepGoal,
+        healthConnectEnabled = healthConnectEnabled,
     )
 
     fun saveCurrentSettings() = onSave(currentSettings())
@@ -358,6 +363,25 @@ fun FitorbRelayApp(
                     onRingNameChange = { ringName = it },
                     onSyncIntervalChange = { syncInterval = it },
                     onStepGoalChange = { stepGoal = it },
+                    healthConnectEnabled = healthConnectEnabled,
+                    healthConnectMessage = healthConnectMessage,
+                    onHealthConnectChange = { enabled ->
+                        if (!enabled) {
+                            healthConnectEnabled = false
+                            healthConnectMessage = "off"
+                            saveCurrentSettings()
+                        } else {
+                            onHealthConnectChange(true) { granted ->
+                                healthConnectEnabled = granted
+                                healthConnectMessage = if (granted) {
+                                    "on"
+                                } else {
+                                    "unavailable"
+                                }
+                                saveCurrentSettings()
+                            }
+                        }
+                    },
                     onSave = ::saveCurrentSettings,
                 )
             }
@@ -643,6 +667,9 @@ private fun RelayDashboard(
     onRingNameChange: (String) -> Unit,
     onSyncIntervalChange: (Int) -> Unit,
     onStepGoalChange: (Int) -> Unit,
+    healthConnectEnabled: Boolean,
+    healthConnectMessage: String,
+    onHealthConnectChange: (Boolean) -> Unit,
     onSave: () -> Unit,
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
@@ -684,6 +711,9 @@ private fun RelayDashboard(
                         onRingNameChange = onRingNameChange,
                         onSyncIntervalChange = onSyncIntervalChange,
                         onStepGoalChange = onStepGoalChange,
+                        healthConnectEnabled = healthConnectEnabled,
+                        healthConnectMessage = healthConnectMessage,
+                        onHealthConnectChange = onHealthConnectChange,
                         onSave = onSave,
                     )
                     else -> HomeScreen(
@@ -1930,6 +1960,9 @@ private fun MoreScreen(
     onRingNameChange: (String) -> Unit,
     onSyncIntervalChange: (Int) -> Unit,
     onStepGoalChange: (Int) -> Unit,
+    healthConnectEnabled: Boolean,
+    healthConnectMessage: String,
+    onHealthConnectChange: (Boolean) -> Unit,
     onSave: () -> Unit,
 ) {
     Text(
@@ -1988,6 +2021,35 @@ private fun MoreScreen(
             stepGoal = settings.stepGoal,
             onStepGoalChange = onStepGoalChange,
         )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(stringResource(R.string.health_connect_title), color = AppText)
+                Text(
+                    stringResource(R.string.health_connect_description),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = AppMuted,
+                )
+                if (healthConnectMessage.isNotBlank()) {
+                    Text(
+                        when (healthConnectMessage) {
+                            "on" -> stringResource(R.string.health_connect_on)
+                            "off" -> stringResource(R.string.health_connect_off)
+                            else -> stringResource(R.string.health_connect_unavailable)
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = AppMuted,
+                    )
+                }
+            }
+            Switch(
+                checked = healthConnectEnabled,
+                onCheckedChange = onHealthConnectChange,
+            )
+        }
         StatusPill(label = uploadStatus, active = uploadOk)
         Row(
             modifier = Modifier.fillMaxWidth(),

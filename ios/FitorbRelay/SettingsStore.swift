@@ -76,6 +76,7 @@ final class SettingsStore {
     private let defaults = UserDefaults.standard
     private let settingsKey = "relay.settings.v1"
     private let receiptKey = "relay.lastReceipt.v1"
+    private let healthKitKey = "relay.healthKitEnabled.v1"
 
     func load() -> RelaySettings {
         guard let data = defaults.data(forKey: settingsKey),
@@ -94,6 +95,9 @@ final class SettingsStore {
     func saveReceipt(_ receipt: SendReceipt) {
         defaults.set(try? JSONEncoder().encode(receipt), forKey: receiptKey)
     }
+
+    func loadHealthKitEnabled() -> Bool { defaults.bool(forKey: healthKitKey) }
+    func saveHealthKitEnabled(_ enabled: Bool) { defaults.set(enabled, forKey: healthKitKey) }
 }
 
 actor SampleQueue {

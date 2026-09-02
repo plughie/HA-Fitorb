@@ -8,6 +8,7 @@ data class RelaySettings(
     val syncIntervalMinutes: Int = 10,
     val ringName: String = "",
     val stepGoal: Int = DEFAULT_STEP_GOAL_STEPS,
+    val healthConnectEnabled: Boolean = false,
 )
 
 const val MIN_STEP_GOAL_STEPS = 1_000

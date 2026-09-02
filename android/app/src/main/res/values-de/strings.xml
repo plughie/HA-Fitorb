@@ -113,4 +113,9 @@
     <string name="info_ring">Ring</string>
     <string name="info_interval">Intervall</string>
     <string name="sync_interval">Sync-Intervall</string>
+    <string name="health_connect_title">Ringdaten in Health Connect speichern</string>
+    <string name="health_connect_description">Herzfrequenz, Blutsauerstoff, Aktivität abgeschlossener Tage und Schlaf. Stress bleibt in Home Assistant.</string>
+    <string name="health_connect_on">Health-Connect-Synchronisierung ist aktiviert</string>
+    <string name="health_connect_off">Health-Connect-Synchronisierung ist deaktiviert</string>
+    <string name="health_connect_unavailable">Health Connect ist nicht verfügbar oder der Zugriff wurde nicht gewährt</string>
 </resources>

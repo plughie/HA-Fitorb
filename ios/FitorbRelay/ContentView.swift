@@ -61,6 +61,7 @@ struct ContentView: View {
                 Section("Schedule while open") {
                     Stepper("Every \(model.settings.syncIntervalMinutes) minutes", value: $model.settings.syncIntervalMinutes, in: 1...60)
                 }
+                healthKitSection
                 Section {
                     Text(model.status)
                         .foregroundStyle(.secondary)
@@ -130,6 +131,7 @@ struct ContentView: View {
                     Section("Schedule while open") {
                         Stepper("Every \(model.settings.syncIntervalMinutes) minutes", value: $model.settings.syncIntervalMinutes, in: 1...60)
                     }
+                    healthKitSection
                     Section {
                         Button("Save") { model.save() }
                         Button("Run setup again") { model.showingSetup = true }
@@ -147,6 +149,19 @@ struct ContentView: View {
                 .textInputAutocapitalization(.never).autocorrectionDisabled()
             TextField("Relay ID", text: $model.settings.relayID)
                 .textInputAutocapitalization(.never).autocorrectionDisabled()
+        }
+    }
+
+    private var healthKitSection: some View {
+        Section("Apple Health") {
+            Toggle("Save ring data to Apple Health", isOn: Binding(
+                get: { model.healthKitEnabled },
+                set: { value in Task { await model.setHealthKitEnabled(value) } }
+            ))
+            .accessibilityHint("Shares supported ring measurements after each collection")
+            Text(model.healthKitStatus).foregroundStyle(.secondary)
+            Text("Saves heart rate, blood oxygen, completed-day activity, and sleep stages. Stress remains in Home Assistant.")
+                .font(.caption).foregroundStyle(.secondary)
         }
     }
 

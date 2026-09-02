@@ -22,7 +22,11 @@ targets:
       path: FitorbRelay/Info.plist
       properties:
         CFBundleDisplayName: Fitorb Relay
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         NSBluetoothAlwaysUsageDescription: Fitorb Relay connects to your smart ring to collect health data.
+        NSHealthShareUsageDescription: Fitorb Relay checks access to the health data types you choose to share.
+        NSHealthUpdateUsageDescription: Fitorb Relay saves measurements collected from your smart ring to Apple Health.
         NSAppTransportSecurity:
           NSAllowsArbitraryLoads: true
         FitorbDefaultHomeAssistantURL: $(FITORB_DEFAULT_HOME_ASSISTANT_URL)
@@ -37,9 +41,15 @@ targets:
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         PRODUCT_BUNDLE_IDENTIFIER: io.github.ichwars.fitorb.relay.ios
         PRODUCT_NAME: FitorbRelay
+        MARKETING_VERSION: 0.1.9
+        CURRENT_PROJECT_VERSION: 10
         TARGETED_DEVICE_FAMILY: 1
         CODE_SIGN_STYLE: Automatic
         DEVELOPMENT_TEAM: ""
+    entitlements:
+      path: FitorbRelay/FitorbRelay.entitlements
+      properties:
+        com.apple.developer.healthkit: true
     scheme:
       testTargets: [FitorbRelayTests]
   FitorbRelayTests:

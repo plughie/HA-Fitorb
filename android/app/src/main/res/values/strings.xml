@@ -113,4 +113,9 @@
     <string name="info_ring">Ring</string>
     <string name="info_interval">Interval</string>
     <string name="sync_interval">Sync interval</string>
+    <string name="health_connect_title">Save ring data to Health Connect</string>
+    <string name="health_connect_description">Heart rate, blood oxygen, completed-day activity, and sleep. Stress stays in Home Assistant.</string>
+    <string name="health_connect_on">Health Connect sync is on</string>
+    <string name="health_connect_off">Health Connect sync is off</string>
+    <string name="health_connect_unavailable">Health Connect is unavailable or access was not granted</string>
 </resources>

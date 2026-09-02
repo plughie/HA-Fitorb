@@ -11,6 +11,7 @@ private const val KEY_RING_ID = "ring_id"
 private const val KEY_RING_NAME = "ring_name"
 private const val KEY_SYNC_INTERVAL_MINUTES = "sync_interval_minutes"
 private const val KEY_STEP_GOAL = "step_goal"
+private const val KEY_HEALTH_CONNECT_ENABLED = "health_connect_enabled"
 private const val KEY_LAST_SEND_AT = "last_send_at"
 private const val KEY_LAST_SENT = "last_sent"
 private const val KEY_LAST_ACCEPTED = "last_accepted"
@@ -44,6 +45,7 @@ class RelaySettingsStore(context: Context) {
             KEY_STEP_GOAL,
             DEFAULT_STEP_GOAL_STEPS,
         ).coerceIn(MIN_STEP_GOAL_STEPS, MAX_STEP_GOAL_STEPS),
+        healthConnectEnabled = preferences.getBoolean(KEY_HEALTH_CONNECT_ENABLED, false),
     )
 
     fun save(settings: RelaySettings) {
@@ -67,6 +69,7 @@ class RelaySettingsStore(context: Context) {
                     MAX_STEP_GOAL_STEPS,
                 ),
             )
+            .putBoolean(KEY_HEALTH_CONNECT_ENABLED, settings.healthConnectEnabled)
             .apply()
     }
 

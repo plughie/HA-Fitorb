@@ -16,6 +16,16 @@ Open `FitorbRelay.xcodeproj` in Xcode, select your development team and iPhone,
 then build and run. The deployment target is iOS 16.0. Bluetooth permission is
 requested by iOS on first use.
 
+## Apple Health
+
+In setup or Settings, enable **Save ring data to Apple Health** and approve the
+requested write access. The app writes heart rate, blood oxygen, completed-day
+steps/distance/active energy, and completed sleep stages. Daily activity is
+written only after the day has ended so repeated cumulative ring snapshots do
+not inflate Health totals. Stress is not exported because HealthKit has no
+direct stress type. Apple Health is optional; Home Assistant uploads continue
+if it is disabled or unavailable.
+
 During setup, select the discovered ring and enter the ring ID used by the Home
 Assistant integration (normally its Bluetooth MAC address), Home Assistant URL,
 relay token, and a distinct relay ID such as `ios-iphone`.
