@@ -23,6 +23,7 @@ import io.github.ichwars.fitorb.relay.sync.RelaySyncScheduler
 import io.github.ichwars.fitorb.relay.sync.fitorbRelayUploader
 import io.github.ichwars.fitorb.relay.ui.FitorbRelayApp
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 
 class MainActivity : ComponentActivity() {
     private var healthPermissionResult: ((Boolean) -> Unit)? = null
@@ -73,7 +74,9 @@ class MainActivity : ComponentActivity() {
                         appVersion = FITORB_APP_VERSION,
                     ).run(normalized).also { result ->
                         if (normalized.healthConnectEnabled) {
-                            runCatching { healthConnect.export(result.capturedSamples) }
+                            runCatching {
+                                withTimeoutOrNull(10_000) { healthConnect.export(result.capturedSamples) }
+                            }
                         }
                         store.saveSendStatus(result.toSendStatus())
                         RelaySyncScheduler.replaceNext(this, normalized.syncIntervalMinutes)

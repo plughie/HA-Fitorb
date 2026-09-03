@@ -26,6 +26,7 @@ import java.time.ZoneOffset
 import java.util.Locale
 import java.util.UUID
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withTimeout
@@ -61,11 +62,18 @@ class AndroidFitorbBleCollector(
         }
         val device = findDevice(adapter, normalizedRingId)
         val capturedAt = Instant.now()
-        return FitorbGattSession(appContext, device, operationTimeoutMillis).use { session ->
-            session.connect()
-            session.collectSamples()
-        }.map { sample ->
-            sample.toRelaySampleDto(normalizedRingId, capturedAt)
+        return try {
+            FitorbGattSession(appContext, device, operationTimeoutMillis).use { session ->
+                session.connect()
+                session.collectSamples()
+            }.map { sample ->
+                sample.toRelaySampleDto(normalizedRingId, capturedAt)
+            }
+        } catch (error: TimeoutCancellationException) {
+            throw FitorbBleCollectionException(
+                "Timed out connecting to or reading the ring. Close other ring apps and try again.",
+                error,
+            )
         }
     }
 

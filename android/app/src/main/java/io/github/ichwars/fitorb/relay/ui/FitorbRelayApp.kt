@@ -93,6 +93,7 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlin.math.roundToInt
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -212,7 +213,7 @@ fun FitorbRelayApp(
         uploadError = ""
         scope.launch {
             try {
-                val result = onUpload(settings)
+                val result = kotlinx.coroutines.withTimeout(120_000) { onUpload(settings) }
                 val ack = result.ack
                 latestRingSamples = result.capturedSamples.ifEmpty { result.uploadedSamples }
                 acceptedCount = ack.accepted.size
@@ -228,6 +229,10 @@ fun FitorbRelayApp(
                 uploadState = "error"
             } catch (exception: IllegalArgumentException) {
                 uploadError = exception.message.orEmpty()
+                mobileRelayActive = false
+                uploadState = "error"
+            } catch (exception: TimeoutCancellationException) {
+                uploadError = "Send timed out. Close other ring apps and try again."
                 mobileRelayActive = false
                 uploadState = "error"
             } catch (exception: CancellationException) {

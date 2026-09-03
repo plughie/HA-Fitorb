@@ -9,6 +9,7 @@ import io.github.ichwars.fitorb.relay.data.RelayDatabase
 import io.github.ichwars.fitorb.relay.health.HealthConnectExporter
 import io.github.ichwars.fitorb.relay.settings.RelaySettingsStore
 import io.github.ichwars.fitorb.relay.settings.RelaySendStatus
+import kotlinx.coroutines.withTimeoutOrNull
 
 class RelayWorker(
     appContext: Context,
@@ -28,7 +29,11 @@ class RelayWorker(
                 appVersion = FITORB_APP_VERSION,
             ).run(settings).also { result ->
                 if (settings.healthConnectEnabled) {
-                    runCatching { HealthConnectExporter(applicationContext).export(result.capturedSamples) }
+                    runCatching {
+                        withTimeoutOrNull(10_000) {
+                            HealthConnectExporter(applicationContext).export(result.capturedSamples)
+                        }
+                    }
                 }
                 store.saveSendStatus(
                     RelaySendStatus(
