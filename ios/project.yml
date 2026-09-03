@@ -10,6 +10,7 @@ settings:
     FITORB_DEFAULT_RELAY_TOKEN: ""
     FITORB_DEFAULT_RELAY_ID: ""
     FITORB_DEFAULT_RING_ID: ""
+    FITORB_ALLOW_HTTP: "NO"
 targets:
   FitorbRelay:
     type: application
@@ -27,12 +28,14 @@ targets:
         NSBluetoothAlwaysUsageDescription: Fitorb Relay connects to your smart ring to collect health data.
         NSHealthShareUsageDescription: Fitorb Relay checks access to the health data types you choose to share.
         NSHealthUpdateUsageDescription: Fitorb Relay saves measurements collected from your smart ring to Apple Health.
+        NSLocalNetworkUsageDescription: Fitorb Relay checks the configured Home Assistant server on your local network before collecting ring data.
         NSAppTransportSecurity:
           NSAllowsArbitraryLoads: true
         FitorbDefaultHomeAssistantURL: $(FITORB_DEFAULT_HOME_ASSISTANT_URL)
         FitorbDefaultRelayToken: $(FITORB_DEFAULT_RELAY_TOKEN)
         FitorbDefaultRelayID: $(FITORB_DEFAULT_RELAY_ID)
         FitorbDefaultRingID: $(FITORB_DEFAULT_RING_ID)
+        FitorbAllowHTTP: $(FITORB_ALLOW_HTTP)
         UILaunchScreen: {}
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
@@ -41,6 +44,7 @@ targets:
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         PRODUCT_BUNDLE_IDENTIFIER: io.github.ichwars.fitorb.relay.ios
         PRODUCT_NAME: FitorbRelay
+        INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.healthcare-fitness
         MARKETING_VERSION: 0.1.10
         CURRENT_PROJECT_VERSION: 11
         TARGETED_DEVICE_FAMILY: 1

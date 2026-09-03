@@ -28,6 +28,8 @@
 	<string>$(FITORB_DEFAULT_RELAY_TOKEN)</string>
 	<key>FitorbDefaultRingID</key>
 	<string>$(FITORB_DEFAULT_RING_ID)</string>
+	<key>FitorbAllowHTTP</key>
+	<string>$(FITORB_ALLOW_HTTP)</string>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsArbitraryLoads</key>
@@ -39,6 +41,8 @@
 	<string>Fitorb Relay checks access to the health data types you choose to share.</string>
 	<key>NSHealthUpdateUsageDescription</key>
 	<string>Fitorb Relay saves measurements collected from your smart ring to Apple Health.</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Fitorb Relay checks the configured Home Assistant server on your local network before collecting ring data.</string>
 	<key>UILaunchScreen</key>
 	<dict/>
 	<key>UISupportedInterfaceOrientations</key>

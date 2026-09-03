@@ -1,0 +1,10 @@
+// Copy this file to LocalDefaults.xcconfig and replace the placeholders for a
+// local development build. LocalDefaults.xcconfig is ignored by Git.
+//
+// Use a relay-scoped token. It is compiled into the app and must not be shared.
+
+FITORB_DEFAULT_HOME_ASSISTANT_URL = https://home-assistant.example
+FITORB_DEFAULT_RELAY_TOKEN = fitorb_relay_replace_with_your_token
+FITORB_DEFAULT_RELAY_ID = ios-iphone
+FITORB_DEFAULT_RING_ID = AA:BB:CC:DD:EE:FF
+FITORB_ALLOW_HTTP = NO

@@ -31,8 +31,9 @@ Assistant integration (normally its Bluetooth MAC address), Home Assistant URL,
 relay token, and a distinct relay ID such as `ios-iphone`.
 
 The project permits HTTP so it can reach a Home Assistant server on a trusted
-local network. Prefer HTTPS whenever the server is reachable outside that
-network because relay tokens are credentials.
+local network only when `FITORB_ALLOW_HTTP = YES` is set in the git-ignored
+`Config/LocalDefaults.xcconfig`. It defaults to `NO`; prefer HTTPS whenever the
+server is reachable outside that network because relay tokens are credentials.
 
 ## Optional build-time defaults
 
@@ -43,8 +44,15 @@ build settings:
 - `FITORB_DEFAULT_RELAY_TOKEN`
 - `FITORB_DEFAULT_RELAY_ID`
 - `FITORB_DEFAULT_RING_ID`
+- `FITORB_ALLOW_HTTP` (defaults to `NO`)
 
 Their committed values are empty. Values entered and saved in the app take
 precedence over build-time defaults and survive installing a newer build with
 the same bundle identifier. A relay token compiled into an app can be extracted
 from that build, so use only a relay-scoped token and never commit it.
+
+## Credits
+
+- Original Fitorb project author: [ichwars](https://github.com/ichwars)
+- iOS mobile relay integration and COLMI R12 validation: [DuvTheDove](https://github.com/plughie)
+- Development assistance: ChatGPT/Codex

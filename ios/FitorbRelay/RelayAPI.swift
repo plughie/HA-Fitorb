@@ -12,6 +12,14 @@ enum RelayError: LocalizedError {
     }
 }
 struct RelayAPI {
+    func checkEndpoint(_ address: String) async throws {
+        guard let url = URL(string: address) else { throw RelayError.invalidURL }
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.timeoutInterval = 8
+        _ = try await URLSession.shared.data(for: request)
+    }
+
     func upload(settings: RelaySettings, samples: [RelaySample]) async throws -> RelayAck {
         guard var url = URL(string: settings.homeAssistantURL) else { throw RelayError.invalidURL }
         url.append(path: "api/fitorb/relay/v1/samples")

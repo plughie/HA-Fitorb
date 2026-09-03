@@ -41,6 +41,7 @@ final class RelayViewModel: ObservableObject {
 
     func scan() async {
         guard !isScanning else { return }
+        await checkHomeAssistantEndpoint()
         isScanning = true
         isShowingScanResults = true
         defer { isScanning = false }
@@ -58,12 +59,13 @@ final class RelayViewModel: ObservableObject {
         isShowingScanResults = false
         status = "Selected \(ring.name)"
     }
-    func save() {
+    func save() async {
         settings.normalize()
         settings.syncIntervalMinutes = min(60, max(1, settings.syncIntervalMinutes))
         store.save(settings)
         showingSetup = !settings.isConfigured
         scheduleTimer()
+        await checkHomeAssistantEndpoint()
     }
 
     func startIfConfigured() async { guard !launched else { return }; launched = true; if settings.isConfigured { await send(); scheduleTimer() } }
@@ -100,6 +102,18 @@ final class RelayViewModel: ObservableObject {
                 try? await Task.sleep(for: .seconds(Double(minutes * 60)))
                 if !Task.isCancelled { await self?.send() }
             }
+        }
+    }
+
+    private func checkHomeAssistantEndpoint() async {
+        let address = settings.homeAssistantURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard URL(string: address)?.host != nil else { return }
+        status = "Checking Home Assistant…"
+        do {
+            try await api.checkEndpoint(address)
+            status = "Home Assistant reachable"
+        } catch {
+            status = "Home Assistant check failed: \(error.localizedDescription)"
         }
     }
 }

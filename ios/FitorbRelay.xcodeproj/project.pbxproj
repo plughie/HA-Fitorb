@@ -41,6 +41,7 @@
 		73CEFCF3AFE19AF0AD756432 /* FitorbRelayTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = FitorbRelayTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		7A620B6605E7B51CD9C835CD /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
 		7F28D8B22ED5CF06AE8C77A0 /* Defaults.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Defaults.xcconfig; sourceTree = "<group>"; };
+		A1E5A0E1B2C3D4E5F6071829 /* LocalDefaults.xcconfig.example */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = LocalDefaults.xcconfig.example; sourceTree = "<group>"; };
 		8E4D78B08239586B3D320361 /* FitorbRelay.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = FitorbRelay.entitlements; sourceTree = "<group>"; };
 		A0F9219CCFD22C9C4F1C3799 /* RelayAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RelayAPI.swift; sourceTree = "<group>"; };
 		B8CEBC1704D23CA73790F869 /* RingProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RingProtocol.swift; sourceTree = "<group>"; };
@@ -54,6 +55,7 @@
 			isa = PBXGroup;
 			children = (
 				7F28D8B22ED5CF06AE8C77A0 /* Defaults.xcconfig */,
+				A1E5A0E1B2C3D4E5F6071829 /* LocalDefaults.xcconfig.example */,
 			);
 			path = Config;
 			sourceTree = "<group>";
@@ -236,6 +238,7 @@
 				CURRENT_PROJECT_VERSION = 11;
 				DEVELOPMENT_TEAM = "";
 				INFOPLIST_FILE = FitorbRelay/Info.plist;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.healthcare-fitness";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -360,6 +363,7 @@
 				CURRENT_PROJECT_VERSION = 11;
 				DEVELOPMENT_TEAM = "";
 				INFOPLIST_FILE = FitorbRelay/Info.plist;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.healthcare-fitness";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",

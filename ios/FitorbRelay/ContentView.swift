@@ -78,7 +78,10 @@ struct ContentView: View {
                 }
                 Section {
                     Button {
-                        model.save(); Task { await model.send() }
+                        Task {
+                            await model.save()
+                            await model.send()
+                        }
                     } label: {
                         HStack {
                             if model.isSending { ProgressView().controlSize(.small) }
@@ -133,7 +136,7 @@ struct ContentView: View {
                     }
                     healthKitSection
                     Section {
-                        Button("Save") { model.save() }
+                        Button("Save") { Task { await model.save() } }
                         Button("Run setup again") { model.showingSetup = true }
                     }
                 }.navigationTitle("Settings")

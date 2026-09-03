@@ -46,7 +46,9 @@ struct RelaySettings: Codable, Equatable {
         if ring.isEmpty { issues.append("Enter the Home Assistant ring ID (usually its Bluetooth MAC address)") }
         if let url = URL(string: address), let scheme = url.scheme?.lowercased(),
            ["http", "https"].contains(scheme), url.host != nil {
-            // Valid Home Assistant address.
+            if scheme == "http" && !Bundle.main.fitorbAllowsHTTP {
+                issues.append("HTTP is disabled for this build; use HTTPS or set FITORB_ALLOW_HTTP = YES for a trusted local server")
+            }
         } else {
             issues.append("Enter a complete Home Assistant URL, including http:// or https://")
         }
@@ -69,6 +71,11 @@ private extension Bundle {
     func fitorbDefault(_ key: String) -> String {
         let value = object(forInfoDictionaryKey: key) as? String ?? ""
         return value.contains("$(") ? "" : value.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    var fitorbAllowsHTTP: Bool {
+        let value = fitorbDefault("FitorbAllowHTTP").uppercased()
+        return value == "YES" || value == "TRUE" || value == "1"
     }
 }
 
