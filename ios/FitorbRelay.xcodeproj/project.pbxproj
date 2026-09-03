@@ -233,14 +233,14 @@
 				CODE_SIGN_ENTITLEMENTS = FitorbRelay/FitorbRelay.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 10;
+				CURRENT_PROJECT_VERSION = 11;
 				DEVELOPMENT_TEAM = "";
 				INFOPLIST_FILE = FitorbRelay/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.1.9;
+				MARKETING_VERSION = 0.1.10;
 				PRODUCT_BUNDLE_IDENTIFIER = io.github.ichwars.fitorb.relay.ios;
 				PRODUCT_NAME = FitorbRelay;
 				SDKROOT = iphoneos;
@@ -357,14 +357,14 @@
 				CODE_SIGN_ENTITLEMENTS = FitorbRelay/FitorbRelay.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 10;
+				CURRENT_PROJECT_VERSION = 11;
 				DEVELOPMENT_TEAM = "";
 				INFOPLIST_FILE = FitorbRelay/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.1.9;
+				MARKETING_VERSION = 0.1.10;
 				PRODUCT_BUNDLE_IDENTIFIER = io.github.ichwars.fitorb.relay.ios;
 				PRODUCT_NAME = FitorbRelay;
 				SDKROOT = iphoneos;

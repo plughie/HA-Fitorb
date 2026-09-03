@@ -41,8 +41,8 @@ targets:
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         PRODUCT_BUNDLE_IDENTIFIER: io.github.ichwars.fitorb.relay.ios
         PRODUCT_NAME: FitorbRelay
-        MARKETING_VERSION: 0.1.9
-        CURRENT_PROJECT_VERSION: 10
+        MARKETING_VERSION: 0.1.10
+        CURRENT_PROJECT_VERSION: 11
         TARGETED_DEVICE_FAMILY: 1
         CODE_SIGN_STYLE: Automatic
         DEVELOPMENT_TEAM: ""

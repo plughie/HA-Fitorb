@@ -49,7 +49,7 @@ class FitorbBleCollectionException(
 class AndroidFitorbBleCollector(
     context: Context,
     private val scanTimeoutMillis: Long = 10_000,
-    private val operationTimeoutMillis: Long = 6_000,
+    private val operationTimeoutMillis: Long = 12_000,
 ) : FitorbBleCollector {
     private val appContext = context.applicationContext
 
@@ -69,11 +69,20 @@ class AndroidFitorbBleCollector(
             }.map { sample ->
                 sample.toRelaySampleDto(normalizedRingId, capturedAt)
             }
-        } catch (error: TimeoutCancellationException) {
-            throw FitorbBleCollectionException(
-                "Timed out connecting to or reading the ring. Close other ring apps and try again.",
-                error,
-            )
+        } catch (firstError: TimeoutCancellationException) {
+            // Some Android Bluetooth stacks need a second GATT open after a stale cached link.
+            delay(750)
+            try {
+                FitorbGattSession(appContext, device, operationTimeoutMillis).use { session ->
+                    session.connect()
+                    session.collectSamples()
+                }.map { sample -> sample.toRelaySampleDto(normalizedRingId, capturedAt) }
+            } catch (secondError: TimeoutCancellationException) {
+                throw FitorbBleCollectionException(
+                    "Timed out connecting to or reading the ring. Close other ring apps and try again.",
+                    secondError,
+                )
+            }
         }
     }
 
@@ -87,9 +96,6 @@ class AndroidFitorbBleCollector(
     private suspend fun findDevice(adapter: BluetoothAdapter, ringId: String): BluetoothDevice {
         ensureConnectPermission()
         val normalizedAddress = ringId.uppercase(Locale.US)
-        if (BluetoothAdapter.checkBluetoothAddress(normalizedAddress)) {
-            return adapter.getRemoteDevice(normalizedAddress)
-        }
         ensureScanPermission()
         val scanner = adapter.bluetoothLeScanner
             ?: throw FitorbBleCollectionException("Bluetooth LE scanner unavailable")
@@ -116,7 +122,13 @@ class AndroidFitorbBleCollector(
         }
         scanner.startScan(callback)
         return try {
-            withTimeout(scanTimeoutMillis) { found.await() }
+            withTimeout(scanTimeoutMillis.coerceAtMost(4_000)) { found.await() }
+        } catch (error: TimeoutCancellationException) {
+            if (BluetoothAdapter.checkBluetoothAddress(normalizedAddress)) {
+                adapter.getRemoteDevice(normalizedAddress)
+            } else {
+                throw FitorbBleCollectionException("No matching ring found during Bluetooth scan.", error)
+            }
         } finally {
             scanner.stopScan(callback)
         }

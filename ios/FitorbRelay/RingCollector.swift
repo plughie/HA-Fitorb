@@ -38,6 +38,14 @@ final class RingCollector: NSObject, @preconcurrency CBCentralManagerDelegate, @
         try await waitUntil { self.central.state == .poweredOn }
         guard let ring = central.retrievePeripherals(withIdentifiers: [peripheralID]).first else { throw RelayError.message("Ring must be scanned again") }
         peripheral = ring; ring.delegate = self; central.connect(ring)
+        defer {
+            central.cancelPeripheralConnection(ring)
+            peripheral = nil
+            uartWrite = nil
+            dataWrite = nil
+            uartPackets.removeAll()
+            dataPackets.removeAll()
+        }
         try await waitUntil(timeout: 20) { ring.state == .connected }
         ring.discoverServices([RingProtocol.uartService, RingProtocol.dataService])
         try await waitUntil { self.uartWrite != nil }
@@ -61,7 +69,7 @@ final class RingCollector: NSObject, @preconcurrency CBCentralManagerDelegate, @
             write(Data([0xbc, 0x27, 0, 0, 0xff, 0xff]), to: dataWrite)
             if let frame = try await nextBigData() { samples += RingProtocol.sleepSamples(frame, ringID: ringID) }
         }
-        central.cancelPeripheralConnection(ring); return samples
+        return samples
     }
 
     private func health(type: UInt8, metric: String, unit: String?, ringID: String) async throws -> [RelaySample] {
