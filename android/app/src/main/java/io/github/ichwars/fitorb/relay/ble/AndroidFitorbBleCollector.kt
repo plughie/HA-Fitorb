@@ -13,6 +13,7 @@ import android.bluetooth.BluetoothProfile
 import android.bluetooth.BluetoothStatusCodes
 import android.bluetooth.le.ScanCallback
 import android.bluetooth.le.ScanResult
+import android.bluetooth.le.ScanSettings
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
@@ -63,23 +64,31 @@ class AndroidFitorbBleCollector(
         val device = findDevice(adapter, normalizedRingId)
         val capturedAt = Instant.now()
         return try {
-            FitorbGattSession(appContext, device, operationTimeoutMillis).use { session ->
+            Log.i(TAG, "Connecting directly to ${device.address}")
+            FitorbGattSession(appContext, device, operationTimeoutMillis, autoConnect = false).use { session ->
                 session.connect()
                 session.collectSamples()
             }.map { sample ->
                 sample.toRelaySampleDto(normalizedRingId, capturedAt)
             }
         } catch (firstError: TimeoutCancellationException) {
-            // Some Android Bluetooth stacks need a second GATT open after a stale cached link.
+            // If the peripheral is between advertising intervals, let Android wait for its
+            // next advertisement instead of immediately repeating the same direct request.
             delay(750)
             try {
-                FitorbGattSession(appContext, device, operationTimeoutMillis).use { session ->
+                Log.i(TAG, "Direct connection timed out; waiting for next advertisement")
+                FitorbGattSession(
+                    appContext,
+                    device,
+                    operationTimeoutMillis * 2,
+                    autoConnect = true,
+                ).use { session ->
                     session.connect()
                     session.collectSamples()
                 }.map { sample -> sample.toRelaySampleDto(normalizedRingId, capturedAt) }
             } catch (secondError: TimeoutCancellationException) {
                 throw FitorbBleCollectionException(
-                    "Timed out connecting to or reading the ring. Close other ring apps and try again.",
+                    "Timed out connecting to the ring after direct and advertisement-waiting attempts.",
                     secondError,
                 )
             }
@@ -99,6 +108,7 @@ class AndroidFitorbBleCollector(
         ensureScanPermission()
         val scanner = adapter.bluetoothLeScanner
             ?: throw FitorbBleCollectionException("Bluetooth LE scanner unavailable")
+        val addressSuffix = normalizedAddress.replace(":", "").takeLast(4)
         val found = CompletableDeferred<BluetoothDevice>()
         val callback = object : ScanCallback() {
             override fun onScanResult(callbackType: Int, result: ScanResult) {
@@ -106,9 +116,14 @@ class AndroidFitorbBleCollector(
                 val name = result.scanRecord?.deviceName ?: device.name.orEmpty()
                 val acceptsAnyColmiRing = ringId.equals("R02", ignoreCase = true) ||
                     ringId.equals("COLMI", ignoreCase = true)
+                // COLMI rings can rotate their Bluetooth address while retaining the last
+                // four MAC digits in their advertised name, e.g. "COLMI R12_CF00".
+                val isRotatedAddressMatch = BluetoothAdapter.checkBluetoothAddress(normalizedAddress) &&
+                    name.uppercase(Locale.US).endsWith("_$addressSuffix")
                 if (device.address.equals(ringId, ignoreCase = true) ||
                     name.equals(ringId, ignoreCase = true) ||
                     name.startsWith(ringId, ignoreCase = true) ||
+                    isRotatedAddressMatch ||
                     (acceptsAnyColmiRing && name.startsWith("R02_", ignoreCase = true)) ||
                     (acceptsAnyColmiRing && name.contains("COLMI", ignoreCase = true))
                 ) {
@@ -120,11 +135,18 @@ class AndroidFitorbBleCollector(
                 found.completeExceptionally(FitorbBleCollectionException("BLE scan failed: $errorCode"))
             }
         }
-        scanner.startScan(callback)
+        scanner.startScan(
+            null,
+            ScanSettings.Builder().setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY).build(),
+            callback,
+        )
         return try {
-            withTimeout(scanTimeoutMillis.coerceAtMost(4_000)) { found.await() }
+            withTimeout(scanTimeoutMillis.coerceAtMost(8_000)) { found.await() }.also {
+                Log.i(TAG, "Found ring advertisement from ${it.address} (${it.name})")
+            }
         } catch (error: TimeoutCancellationException) {
             if (BluetoothAdapter.checkBluetoothAddress(normalizedAddress)) {
+                Log.i(TAG, "Ring was not advertising; using configured address $normalizedAddress")
                 adapter.getRemoteDevice(normalizedAddress)
             } else {
                 throw FitorbBleCollectionException("No matching ring found during Bluetooth scan.", error)
@@ -157,6 +179,7 @@ private class FitorbGattSession(
     private val context: Context,
     private val device: BluetoothDevice,
     private val timeoutMillis: Long,
+    private val autoConnect: Boolean,
 ) : AutoCloseable {
     private var gatt: BluetoothGatt? = null
     private var connected = CompletableDeferred<Unit>()
@@ -173,6 +196,7 @@ private class FitorbGattSession(
 
     private val callback = object : BluetoothGattCallback() {
         override fun onConnectionStateChange(gatt: BluetoothGatt, status: Int, newState: Int) {
+            Log.i(TAG, "GATT state changed: status=$status state=$newState autoConnect=$autoConnect")
             if (status != BluetoothGatt.GATT_SUCCESS) {
                 connected.completeExceptionally(FitorbBleCollectionException("GATT connection failed: $status"))
                 return
@@ -236,7 +260,7 @@ private class FitorbGattSession(
     suspend fun connect() {
         connected = CompletableDeferred()
         servicesDiscovered = CompletableDeferred()
-        gatt = device.connectGatt(context, false, callback, BluetoothDevice.TRANSPORT_LE)
+        gatt = device.connectGatt(context, autoConnect, callback, BluetoothDevice.TRANSPORT_LE)
             ?: throw FitorbBleCollectionException("Unable to create GATT connection")
         withTimeout(timeoutMillis) { connected.await() }
         val activeGatt = requireGatt()

@@ -88,6 +88,14 @@ stages. Stress remains available only in Home Assistant because neither health
 platform provides a matching stress data type. A health export failure never
 blocks the Home Assistant upload.
 
+Health export is independent of the relay upload. For example, when the Android
+app writes ring data to Health Connect and the Home Assistant Companion app is
+configured to read Health Connect, Home Assistant can receive the same readings
+through both paths. The Companion app only needs read access; it does not write
+data back to the ring or Health Connect. Choose the direct Fitorb entities or
+the Companion-app Health Connect entities as the authoritative dashboard source
+to avoid displaying duplicate measurements.
+
 Relay uploads are mapped onto the same Home Assistant entities used by direct
 Bluetooth reads. The latest accepted values are restored after a Home Assistant
 restart, including battery, activity, heart rate, SpO2, stress, and sleep
@@ -198,6 +206,17 @@ error persists, restart the Home Assistant Bluetooth adapter or the HA VM.
 When Home Assistant has no connectable Bluetooth path to the ring during a poll, the
 integration keeps the last known values and marks the connection unavailable until a
 later poll reaches the ring again.
+
+### Android relay cannot discover or connect to one ring
+
+The Android relay closes its GATT connection after every bounded collection
+cycle. If it cannot discover or connect to one ring, first close other apps that
+may use the ring and try a general-purpose BLE scanner such as nRF Connect. If
+the scanner also cannot discover the ring while another phone can, the Android
+Bluetooth stack may have retained stale state for that device. Restart the
+Android phone, then retry the scanner and the relay. This recovery is
+system-level; it is not evidence that Health Connect or the relay upload path
+has changed the ring's data.
 
 ## Known Limits
 

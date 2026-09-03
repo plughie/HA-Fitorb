@@ -65,3 +65,17 @@ because Health Connect has no direct stress record. This feature needs Android
 9 or newer with Health Connect available; Android 14 and newer include Health
 Connect in the system. Home Assistant uploads continue if health export is off,
 unavailable, or fails.
+
+Health Connect export is separate from the direct Home Assistant relay upload.
+If the Home Assistant Companion app is also configured to read Health Connect,
+it can create a second Home Assistant path for the same ring readings. The
+Companion app needs read access only; it does not write data back to Health
+Connect or the ring.
+
+## Bluetooth recovery
+
+Each collection uses a temporary GATT session and closes it before upload. If
+the relay cannot discover or connect to a ring, close other apps that may use
+it and scan with a general-purpose tool such as nRF Connect. When that scanner
+also cannot find the ring while another phone can, restart the Android phone to
+clear the system Bluetooth stack's per-device state, then retry the relay.
