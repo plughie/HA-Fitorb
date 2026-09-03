@@ -235,5 +235,5 @@ MIT
 ## Credits
 
 - Original project author: [ichwars](https://github.com/ichwars)
-- Mobile relay integration and COLMI R12 device validation: [Duv McIntyre](https://github.com/plughie)
+- Mobile relay integration and COLMI R12 device validation: [DuvTheDove](https://github.com/plughie)
 - Development assistance: ChatGPT/Codex
