@@ -57,6 +57,7 @@ struct ContentView: View {
                         .foregroundStyle(.secondary)
                     if !model.settings.ringName.isEmpty { Text("Selected: \(model.settings.ringName)") }
                 }
+                pairingNotice
                 connectionFields
                 Section("Schedule while open") {
                     Stepper("Every \(model.settings.syncIntervalMinutes) minutes", value: $model.settings.syncIntervalMinutes, in: 1...60)
@@ -100,6 +101,7 @@ struct ContentView: View {
         TabView {
             NavigationStack {
                 List {
+                    pairingNotice
                     Section("Relay") {
                         LabeledContent("Ring", value: model.settings.ringName)
                         LabeledContent("Status", value: model.status)
@@ -152,6 +154,20 @@ struct ContentView: View {
                 .textInputAutocapitalization(.never).autocorrectionDisabled()
             TextField("Relay ID", text: $model.settings.relayID)
                 .textInputAutocapitalization(.never).autocorrectionDisabled()
+        }
+    }
+
+    private var pairingNotice: some View {
+        Section {
+            Label {
+                Text("If the ring asks to pair, choose Cancel or wait about 15 seconds. Pairing is not required for collection; accepting it can reduce battery life.")
+                    .font(.subheadline)
+            } icon: {
+                Image(systemName: "bolt.horizontal.circle.fill")
+                    .foregroundStyle(.orange)
+            }
+            .accessibilityLabel("Bluetooth pairing notice")
+            .accessibilityValue("Cancel or ignore a ring pairing request. It clears after about 15 seconds. Pairing is not needed and can reduce battery life.")
         }
     }
 
