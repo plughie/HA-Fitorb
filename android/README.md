@@ -34,6 +34,19 @@ Without build-time overrides, run:
 ./gradlew assembleDebug
 ```
 
+## Development deployment
+
+For a connected test phone, install the debug APK and also copy it to the
+phone's **Downloads** folder so it is available for manual installation:
+
+```sh
+adb install -r app/build/outputs/apk/debug/Fitorb-Mobile-Relay-0.1.14-debug.apk
+adb push app/build/outputs/apk/debug/Fitorb-Mobile-Relay-0.1.14-debug.apk /sdcard/Download/
+```
+
+If the phone is not connected, place the installable APK in Synology Drive's
+`Android` folder for transfer to the phone.
+
 ## Ring collection behavior
 
 The relay connects only for a bounded collection cycle. It reads battery,
