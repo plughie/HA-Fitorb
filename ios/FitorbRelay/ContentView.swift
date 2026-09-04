@@ -160,14 +160,14 @@ struct ContentView: View {
     private var pairingNotice: some View {
         Section {
             Label {
-                Text("If the ring asks to pair, choose Cancel or wait about 15 seconds. Pairing is not required for collection; accepting it can reduce battery life.")
+                Text("If the ring asks to pair, choose Cancel or wait about 30 seconds. Pairing is not required for collection; accepting it can reduce battery life.")
                     .font(.subheadline)
             } icon: {
                 Image(systemName: "bolt.horizontal.circle.fill")
                     .foregroundStyle(.orange)
             }
             .accessibilityLabel("Bluetooth pairing notice")
-            .accessibilityValue("Cancel or ignore a ring pairing request. It clears after about 15 seconds. Pairing is not needed and can reduce battery life.")
+            .accessibilityValue("Cancel or ignore a ring pairing request. It clears after about 30 seconds. Pairing is not needed and can reduce battery life.")
         }
     }
 
