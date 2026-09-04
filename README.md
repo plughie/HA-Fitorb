@@ -81,7 +81,8 @@ sample counts after every manual or scheduled operation. Build instructions are
 in [`android/README.md`](android/README.md) and [`ios/README.md`](ios/README.md).
 
 On iOS, a compatible ring may present a **Bluetooth Pairing Request** each time
-a collection starts. Choose **Cancel** each time: the relay uses a short-lived BLE data connection
+a collection starts. Choose **Cancel** or ignore it: it clears on its own after
+about 15 seconds and does not prevent collection. The relay uses a short-lived BLE data connection
 and does not need pairing to collect or upload samples. Accepting the request can
 create an unnecessary persistent Bluetooth relationship that may compete with
 Android background polling and increase avoidable power use.

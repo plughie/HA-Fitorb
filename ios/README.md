@@ -19,8 +19,8 @@ requested by iOS on first use.
 ### Pairing request from the ring
 
 Some compatible rings may show an iOS **Bluetooth Pairing Request** each time
-the relay starts a collection. Select **Cancel** each time it appears. Fitorb
-Relay uses an ordinary,
+the relay starts a collection. Select **Cancel**, or ignore it; it clears on its
+own after about 15 seconds and does not prevent collection. Fitorb Relay uses an ordinary,
 short-lived BLE data connection and does not require a Bluetooth bond to collect
 or upload samples. Accepting the ring's pairing request can create an unnecessary
 persistent Bluetooth relationship that may compete with the Android relay's
