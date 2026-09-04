@@ -16,6 +16,17 @@ Open `FitorbRelay.xcodeproj` in Xcode, select your development team and iPhone,
 then build and run. The deployment target is iOS 16.0. Bluetooth permission is
 requested by iOS on first use.
 
+### Pairing request from the ring
+
+Some compatible rings may show an iOS **Bluetooth Pairing Request** each time
+the relay starts a collection. Select **Cancel** each time it appears. Fitorb
+Relay uses an ordinary,
+short-lived BLE data connection and does not require a Bluetooth bond to collect
+or upload samples. Accepting the ring's pairing request can create an unnecessary
+persistent Bluetooth relationship that may compete with the Android relay's
+background polling and increase avoidable power use. The relay disconnects when
+each collection completes.
+
 ## Apple Health
 
 In setup or Settings, enable **Save ring data to Apple Health** and approve the
