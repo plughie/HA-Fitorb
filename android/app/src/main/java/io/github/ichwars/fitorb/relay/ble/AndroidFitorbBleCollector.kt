@@ -318,11 +318,14 @@ private class FitorbGattSession(
     }
 
     private suspend fun readBattery(): List<RingCollectedSample>? {
-        writeUart(FitorbProtocol.buildCommand("03"))
-        val parsed = readUartParsed {
-            it is ParsedRingPacket.Battery
-        } ?: return null
-        return parsed.toCollectedSamples(Instant.now())
+        repeat(2) {
+            writeUart(FitorbProtocol.buildCommand("03"))
+            val parsed = readUartParsed {
+                it is ParsedRingPacket.Battery
+            }
+            if (parsed != null) return parsed.toCollectedSamples(Instant.now())
+        }
+        return null
     }
 
     private suspend fun readActivityHistory(): List<RingCollectedSample> {

@@ -8,6 +8,8 @@ final class RingCollector: NSObject, @preconcurrency CBCentralManagerDelegate, @
     private var peripheral: CBPeripheral?
     private var uartWrite: CBCharacteristic?
     private var dataWrite: CBCharacteristic?
+    private var uartNotificationsEnabled = false
+    private var dataNotificationsEnabled = false
     private var uartPackets: [Data] = []
     private var dataPackets: [Data] = []
 
@@ -43,12 +45,16 @@ final class RingCollector: NSObject, @preconcurrency CBCentralManagerDelegate, @
             peripheral = nil
             uartWrite = nil
             dataWrite = nil
+            uartNotificationsEnabled = false
+            dataNotificationsEnabled = false
             uartPackets.removeAll()
             dataPackets.removeAll()
         }
         try await waitUntil(timeout: 20) { ring.state == .connected }
         ring.discoverServices([RingProtocol.uartService, RingProtocol.dataService])
-        try await waitUntil { self.uartWrite != nil }
+        // CoreBluetooth enables notifications asynchronously. Wait for the UART
+        // subscription before sending requests, as Android does after its CCCD write.
+        try await waitUntil(timeout: 12) { self.uartWrite != nil && self.uartNotificationsEnabled }
         var samples: [RelaySample] = []
         write(RingProtocol.command([0x03]), to: uartWrite)
         if let packet = try await nextUART(where: { $0.first == 0x03 }) { samples += RingProtocol.currentSamples(packet, ringID: ringID) }
@@ -65,7 +71,9 @@ final class RingCollector: NSObject, @preconcurrency CBCentralManagerDelegate, @
         samples += try await health(type: 0x01, metric: "heart_rate", unit: "bpm", ringID: ringID)
         samples += try await health(type: 0x03, metric: "spo2", unit: "%", ringID: ringID)
         samples += try await health(type: 0x08, metric: "stress", unit: nil, ringID: ringID)
-        if let dataWrite {
+        // Sleep arrives over the Big Data notification characteristic. Do not make
+        // the request until that subscription has been confirmed.
+        if let dataWrite, (try? await waitUntil(timeout: 12) { self.dataNotificationsEnabled }) != nil {
             write(Data([0xbc, 0x27, 0, 0, 0xff, 0xff]), to: dataWrite)
             if let frame = try await nextBigData() { samples += RingProtocol.sleepSamples(frame, ringID: ringID) }
         }
@@ -76,7 +84,7 @@ final class RingCollector: NSObject, @preconcurrency CBCentralManagerDelegate, @
         defer { write(RingProtocol.command([0x6a, type, 0, 0]), to: uartWrite) }
         write(RingProtocol.command([0x69, type, 0x01]), to: uartWrite); try await Task.sleep(for: .milliseconds(500))
         write(RingProtocol.command([0x69, type, 0x03]), to: uartWrite)
-        guard let packet = try await nextUART(timeout: 35, where: { RingProtocol.healthSample($0, ringID: ringID, type: type, metric: metric, unit: unit) != nil }),
+        guard let packet = try await nextUART(timeout: 60, where: { RingProtocol.healthSample($0, ringID: ringID, type: type, metric: metric, unit: unit) != nil }),
               let sample = RingProtocol.healthSample(packet, ringID: ringID, type: type, metric: metric, unit: unit) else { return [] }
         return [sample]
     }
@@ -95,7 +103,7 @@ final class RingCollector: NSObject, @preconcurrency CBCentralManagerDelegate, @
     }
 
     private func nextBigData() async throws -> Data? {
-        var buffer = Data(), deadline = Date().addingTimeInterval(20)
+        var buffer = Data(), deadline = Date().addingTimeInterval(24)
         while Date() < deadline {
             if !dataPackets.isEmpty { buffer.append(dataPackets.removeFirst()) }
             while buffer.count >= 6 {
@@ -143,6 +151,11 @@ final class RingCollector: NSObject, @preconcurrency CBCentralManagerDelegate, @
         guard let value = characteristic.value else { return }
         if characteristic.uuid == RingProtocol.uartNotify { uartPackets.append(value) }
         if characteristic.uuid == RingProtocol.dataNotify { dataPackets.append(value) }
+    }
+    func peripheral(_ peripheral: CBPeripheral, didUpdateNotificationStateFor characteristic: CBCharacteristic, error: Error?) {
+        guard error == nil, characteristic.isNotifying else { return }
+        if characteristic.uuid == RingProtocol.uartNotify { uartNotificationsEnabled = true }
+        if characteristic.uuid == RingProtocol.dataNotify { dataNotificationsEnabled = true }
     }
 }
 
